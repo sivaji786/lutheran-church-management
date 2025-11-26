@@ -64,10 +64,20 @@ For automated installation:
 ./setup.sh
 ```
 
-**Windows:**
+**Windows (Command Prompt):**
 ```cmd
 setup.bat
 ```
+
+**Windows (PowerShell):**
+```powershell
+.\setup.ps1
+```
+
+> **Note:** If you get "execution policy" error in PowerShell, run:
+> ```powershell
+> Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+> ```
 
 The setup script will:
 - ✅ Check all prerequisites
