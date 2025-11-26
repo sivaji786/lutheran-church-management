@@ -14,7 +14,7 @@ NC='\033[0m' # No Color
 
 # Configuration
 API_BASE_URL="${API_BASE_URL:-http://localhost:8080}"
-FRONTEND_URL="${FRONTEND_URL:-http://localhost:5173}"
+FRONTEND_URL="${FRONTEND_URL:-http://localhost:3000}"
 
 # Test counters
 TOTAL_TESTS=0

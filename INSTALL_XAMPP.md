@@ -176,13 +176,13 @@ cd C:\xampp\htdocs\lutheran-church-management
 npm run dev
 ```
 
-Frontend runs on: http://localhost:5173
+Frontend runs on: http://localhost:3000
 
 ---
 
 ## 🌐 Access the Application
 
-- **Frontend:** http://localhost:5173
+- **Frontend:** http://localhost:3000
 - **Backend API:** http://localhost:8080
 - **phpMyAdmin:** http://localhost/phpmyadmin
 
@@ -307,7 +307,7 @@ After installation, verify:
 - [ ] XAMPP MySQL is running
 - [ ] Database `lutheran_church` exists
 - [ ] Backend server runs on port 8080
-- [ ] Frontend runs on port 5173
+- [ ] Frontend runs on port 3000
 - [ ] Can login as admin
 - [ ] Can login as member
 - [ ] phpMyAdmin shows tables
@@ -347,7 +347,7 @@ If you encounter issues:
 Your Lutheran Church Management System is now running on XAMPP!
 
 **Development URLs:**
-- Frontend: http://localhost:5173
+- Frontend: http://localhost:3000
 - Backend: http://localhost:8080
 - Database: http://localhost/phpmyadmin
 

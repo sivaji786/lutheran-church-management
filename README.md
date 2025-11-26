@@ -109,7 +109,7 @@ cp .env.example .env
 npm run dev
 ```
 
-Frontend will run on `http://localhost:5173`
+Frontend will run on `http://localhost:3000`
 
 ### 3. Backend Setup
 ```bash
@@ -157,7 +157,7 @@ php spark serve
 Backend will run on `http://localhost:8080`
 
 ### 6. Access Application
-- **Frontend:** http://localhost:5173
+- **Frontend:** http://localhost:3000
 - **Backend API:** http://localhost:8080
 
 ---
