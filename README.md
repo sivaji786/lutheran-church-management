@@ -348,30 +348,422 @@ lutheran-church-management/
 
 ## 🚀 Production Deployment
 
-### Build Frontend
+### Deployment Options
+
+This application can be deployed on:
+- ✅ Shared Hosting (GoDaddy, Bluehost, HostGator, etc.)
+- ✅ VPS/Cloud (DigitalOcean, AWS, Azure, Google Cloud)
+- ✅ cPanel Hosting
+- ✅ Dedicated Servers
+
+---
+
+### Option 1: Shared Hosting (GoDaddy, cPanel)
+
+This is the most common deployment method for small to medium applications.
+
+#### Prerequisites
+- Shared hosting account with:
+  - PHP 8.1+ support
+  - MySQL database access
+  - SSH access (optional but recommended)
+  - File Manager or FTP access
+
+#### Step 1: Build the Application Locally
+
+On your local machine:
+
 ```bash
+# Build frontend for production
 npm run build
+
+# This creates a 'dist' folder with optimized files
 ```
-Output will be in `dist/` directory.
 
-### Deploy Backend
-1. Upload `backend/` folder to server
-2. Configure `backend/.env` with production credentials
-3. Point web server to `backend/public/`
-4. Ensure PHP 8.1+ and required extensions are installed
+#### Step 2: Prepare Backend Files
 
-### Deploy Frontend
-1. Upload `dist/` contents to web server
-2. Configure web server for SPA routing
-3. Update API base URL in production environment
+```bash
+# Install backend dependencies (production only)
+cd backend
+composer install --no-dev --optimize-autoloader
 
-### Security Checklist
-- ✅ Change default admin password
-- ✅ Update JWT_SECRET in production
-- ✅ Enable HTTPS
-- ✅ Configure CORS properly
-- ✅ Set up database backups
-- ✅ Enable error logging
+# Remove development files
+rm -rf tests/
+rm phpunit.xml.dist
+```
+
+#### Step 3: Upload Files
+
+**Option A: Using cPanel File Manager**
+
+1. Login to cPanel
+2. Go to File Manager
+3. Navigate to `public_html` (or your domain's root)
+4. Create folder structure:
+   ```
+   public_html/
+   ├── api/          (upload backend files here)
+   └── app/          (upload dist files here)
+   ```
+
+**Option B: Using FTP (FileZilla)**
+
+1. Connect to your hosting via FTP
+2. Upload `backend/` folder to `public_html/api/`
+3. Upload `dist/` contents to `public_html/app/`
+
+**Option C: Using SSH (Recommended)**
+
+```bash
+# On your local machine, create deployment package
+tar -czf lutheran-app.tar.gz backend/ dist/
+
+# Upload to server
+scp lutheran-app.tar.gz user@yourserver.com:~/
+
+# SSH into server
+ssh user@yourserver.com
+
+# Extract files
+tar -xzf lutheran-app.tar.gz
+mv backend public_html/api
+mv dist/* public_html/app/
+```
+
+#### Step 4: Create MySQL Database
+
+1. Login to cPanel
+2. Go to **MySQL Databases**
+3. Create new database: `lutheran_church`
+4. Create database user with password
+5. Add user to database with ALL PRIVILEGES
+6. Note down:
+   - Database name (e.g., `username_lutheran`)
+   - Database user (e.g., `username_dbuser`)
+   - Database password
+   - Database host (usually `localhost`)
+
+#### Step 5: Import Database Schema
+
+**Using phpMyAdmin:**
+1. Go to cPanel → phpMyAdmin
+2. Select your database
+3. Click "Import" tab
+4. Upload `database/schema.sql`
+5. Click "Go"
+6. Repeat for `database/seed.sql` (optional)
+
+**Using SSH:**
+```bash
+mysql -u username_dbuser -p username_lutheran < schema.sql
+mysql -u username_dbuser -p username_lutheran < seed.sql
+```
+
+#### Step 6: Configure Backend Environment
+
+1. Navigate to `public_html/api/`
+2. Rename `env` to `.env`
+3. Edit `.env` file:
+
+```ini
+CI_ENVIRONMENT = production
+
+app.baseURL = 'https://yourdomain.com/api'
+
+database.default.hostname = localhost
+database.default.database = username_lutheran
+database.default.username = username_dbuser
+database.default.password = your_db_password
+database.default.DBDriver = MySQLi
+database.default.port = 3306
+
+# Generate new secret: openssl rand -hex 32
+JWT_SECRET = 'your-production-secret-key-here'
+
+# Disable debug in production
+app.forceGlobalSecureRequests = true
+```
+
+#### Step 7: Configure Frontend
+
+1. Navigate to `public_html/app/`
+2. Create/edit `.env` file:
+
+```env
+VITE_API_BASE_URL=https://yourdomain.com/api
+```
+
+**Important:** Since frontend is already built, you need to rebuild with production API URL:
+
+```bash
+# On local machine
+VITE_API_BASE_URL=https://yourdomain.com/api npm run build
+
+# Re-upload dist/ contents to public_html/app/
+```
+
+#### Step 8: Set Permissions
+
+Using cPanel File Manager or SSH:
+
+```bash
+# Set writable permissions
+chmod -R 755 public_html/api/writable
+chmod -R 755 public_html/api/writable/cache
+chmod -R 755 public_html/api/writable/logs
+chmod -R 755 public_html/api/writable/session
+chmod -R 755 public_html/api/writable/uploads
+```
+
+#### Step 9: Configure .htaccess
+
+**Backend (.htaccess in public_html/api/public/):**
+
+Already included in CodeIgniter, but verify:
+
+```apache
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php/$1 [L]
+```
+
+**Frontend (.htaccess in public_html/app/):**
+
+Create this file for SPA routing:
+
+```apache
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /app/
+  RewriteRule ^index\.html$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /app/index.html [L]
+</IfModule>
+```
+
+#### Step 10: Update API Base URL in Code
+
+If you hardcoded API URLs, update `src/services/api.ts`:
+
+```typescript
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://yourdomain.com/api';
+```
+
+#### Step 11: Test the Deployment
+
+1. **Test Backend API:**
+   ```
+   https://yourdomain.com/api/health
+   ```
+   Should return: `{"status": "ok"}`
+
+2. **Test Frontend:**
+   ```
+   https://yourdomain.com/app/
+   ```
+   Should load the login page
+
+3. **Test Login:**
+   - Admin: `admin` / `admin123`
+   - Member: `LCH001` / `member123`
+
+#### Step 12: Enable HTTPS (SSL)
+
+**Using cPanel:**
+1. Go to **SSL/TLS Status**
+2. Enable AutoSSL for your domain
+3. Or install Let's Encrypt certificate
+
+**Force HTTPS in .htaccess:**
+
+Add to `public_html/.htaccess`:
+
+```apache
+RewriteEngine On
+RewriteCond %{HTTPS} off
+RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+```
+
+---
+
+### Option 2: VPS/Cloud Deployment (DigitalOcean, AWS, etc.)
+
+#### Prerequisites
+- VPS with Ubuntu 20.04+ or similar
+- Root/sudo access
+- Domain name pointed to server IP
+
+#### Quick Setup
+
+```bash
+# 1. Install required software
+sudo apt update
+sudo apt install -y nginx mysql-server php8.1-fpm php8.1-mysql php8.1-mbstring php8.1-xml php8.1-curl composer nodejs npm
+
+# 2. Clone repository
+git clone https://github.com/sivaji786/lutheran-church-management.git
+cd lutheran-church-management
+
+# 3. Run setup
+./setup.sh
+
+# 4. Build frontend
+npm run build
+
+# 5. Configure Nginx
+sudo nano /etc/nginx/sites-available/lutheran
+```
+
+**Nginx Configuration:**
+
+```nginx
+server {
+    listen 80;
+    server_name yourdomain.com;
+    
+    # Frontend
+    location / {
+        root /var/www/lutheran/dist;
+        try_files $uri $uri/ /index.html;
+    }
+    
+    # Backend API
+    location /api {
+        alias /var/www/lutheran/backend/public;
+        try_files $uri $uri/ /api/index.php?$query_string;
+        
+        location ~ \.php$ {
+            fastcgi_pass unix:/var/run/php/php8.1-fpm.sock;
+            fastcgi_index index.php;
+            fastcgi_param SCRIPT_FILENAME $request_filename;
+            include fastcgi_params;
+        }
+    }
+}
+```
+
+```bash
+# Enable site and restart Nginx
+sudo ln -s /etc/nginx/sites-available/lutheran /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl restart nginx
+
+# Install SSL with Certbot
+sudo apt install certbot python3-certbot-nginx
+sudo certbot --nginx -d yourdomain.com
+```
+
+---
+
+### Option 3: Subdomain Deployment
+
+If deploying on a subdomain (e.g., `church.yourdomain.com`):
+
+1. Create subdomain in cPanel
+2. Point subdomain to a folder (e.g., `public_html/church`)
+3. Upload files to that folder
+4. Follow same steps as shared hosting
+5. Update API URLs to match subdomain
+
+---
+
+### Production Checklist
+
+Before going live, ensure:
+
+- [ ] Changed default admin password
+- [ ] Changed default member passwords
+- [ ] Updated JWT_SECRET in production
+- [ ] Set `CI_ENVIRONMENT = production`
+- [ ] Enabled HTTPS/SSL
+- [ ] Configured CORS properly
+- [ ] Set up database backups
+- [ ] Tested all features (login, CRUD operations)
+- [ ] Removed development files
+- [ ] Set proper file permissions
+- [ ] Configured error logging
+- [ ] Set up monitoring (optional)
+
+---
+
+### Troubleshooting
+
+**Issue: 500 Internal Server Error**
+- Check `backend/writable/logs/` for errors
+- Verify `.htaccess` is present
+- Check file permissions (755 for directories, 644 for files)
+
+**Issue: API not found (404)**
+- Verify mod_rewrite is enabled
+- Check API base URL in frontend
+- Verify backend path is correct
+
+**Issue: Database connection failed**
+- Verify database credentials in `.env`
+- Check if database user has proper privileges
+- Ensure MySQL is running
+
+**Issue: CORS errors**
+- Update `backend/app/Config/Filters.php`
+- Add your domain to allowed origins
+
+---
+
+### Performance Optimization
+
+1. **Enable PHP OPcache** (in php.ini):
+   ```ini
+   opcache.enable=1
+   opcache.memory_consumption=128
+   opcache.max_accelerated_files=10000
+   ```
+
+2. **Enable Gzip Compression** (.htaccess):
+   ```apache
+   <IfModule mod_deflate.c>
+     AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css text/javascript application/javascript
+   </IfModule>
+   ```
+
+3. **Browser Caching** (.htaccess):
+   ```apache
+   <IfModule mod_expires.c>
+     ExpiresActive On
+     ExpiresByType image/jpg "access plus 1 year"
+     ExpiresByType image/jpeg "access plus 1 year"
+     ExpiresByType image/gif "access plus 1 year"
+     ExpiresByType image/png "access plus 1 year"
+     ExpiresByType text/css "access plus 1 month"
+     ExpiresByType application/javascript "access plus 1 month"
+   </IfModule>
+   ```
+
+---
+
+### Backup Strategy
+
+**Database Backup (Automated):**
+
+Create cron job in cPanel:
+```bash
+0 2 * * * mysqldump -u username -p'password' database_name > /home/user/backups/db_$(date +\%Y\%m\%d).sql
+```
+
+**File Backup:**
+- Use cPanel backup feature (weekly)
+- Or create manual backups before updates
+
+---
+
+### Support
+
+For deployment issues:
+- Check server error logs
+- Review CodeIgniter logs in `backend/writable/logs/`
+- Contact your hosting provider for server-specific issues
+- Open an issue on GitHub for application-specific problems
 
 ---
 
