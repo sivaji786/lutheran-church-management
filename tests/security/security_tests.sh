@@ -170,6 +170,9 @@ test_dependency_vulnerabilities() {
             print_info "npm audit results:"
             cat /tmp/npm_audit.txt
         fi
+        
+        # Clean up temp file
+        rm -f /tmp/npm_audit.txt
     else
         print_info "npm not found - skipping dependency check"
     fi
