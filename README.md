@@ -55,6 +55,26 @@ composer --version # Should be 2.x.x
 
 ## 🚀 Installation
 
+### Quick Setup (Recommended)
+
+For automated installation, simply run:
+
+```bash
+./setup.sh
+```
+
+The setup script will:
+- ✅ Check all prerequisites
+- ✅ Install frontend and backend dependencies
+- ✅ Configure environment files
+- ✅ Set up the database (with your input)
+- ✅ Set proper permissions
+- ✅ Optionally build for production
+
+### Manual Installation
+
+If you prefer manual installation, follow these steps:
+
 ### 1. Clone Repository
 ```bash
 git clone https://github.com/sivaji786/lutheran-church-management.git
