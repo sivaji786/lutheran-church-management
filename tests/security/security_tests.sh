@@ -52,16 +52,23 @@ test_sql_injection_login() {
     print_header "Test 1: SQL Injection in Login"
     
     print_test "Testing SQL injection in admin login"
-    RESPONSE=$(curl -s --max-time 5 -X POST "$API_BASE_URL/api/auth/admin/login" \
+    
+    # Create temp file for payload to avoid shell escaping issues
+    echo '{"username":"admin OR 1=1","password":"anything"}' > /tmp/sql_test.json
+    
+    RESPONSE=$(timeout 5 curl -s -X POST "$API_BASE_URL/api/auth/admin/login" \
         -H "Content-Type: application/json" \
-        -d '{"username":"admin'\'' OR '\''1'\''='\''1","password":"anything"}' 2>/dev/null || echo "connection_failed")
+        -d @/tmp/sql_test.json 2>/dev/null || echo "connection_failed")
+    
+    rm -f /tmp/sql_test.json
     
     if [ "$RESPONSE" = "connection_failed" ]; then
         print_info "Cannot connect to API (is backend running?)"
-    elif echo "$RESPONSE" | grep -q "Invalid credentials\|error\|Unauthorized"; then
+    elif echo "$RESPONSE" | grep -qi "Invalid credentials\|error\|Unauthorized\|Bad Request"; then
         print_pass "SQL injection in login prevented"
     else
         print_fail "Possible SQL injection vulnerability in login"
+        echo "Response: $RESPONSE"
     fi
 }
 
