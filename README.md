@@ -1,5 +1,12 @@
 # Lutheran Church Management System
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Tests](https://img.shields.io/badge/tests-42%2F42%20passing-brightgreen)](https://github.com/sivaji786/lutheran-church-management)
+[![PHP](https://img.shields.io/badge/PHP-8.1%2B-blue)](https://www.php.net/)
+[![Node](https://img.shields.io/badge/Node.js-18%2B-green)](https://nodejs.org/)
+
+**Repository:** https://github.com/sivaji786/lutheran-church-management
+
 A comprehensive full-stack web application for managing church members, offerings, and support tickets with separate portals for administrators and members.
 
 ## 🚀 Quick Start
@@ -14,8 +21,8 @@ A comprehensive full-stack web application for managing church members, offering
 
 #### 1. Clone Repository
 ```bash
-git clone <repository-url>
-cd Lutheran
+git clone https://github.com/sivaji786/lutheran-church-management.git
+cd lutheran-church-management
 ```
 
 #### 2. Frontend Setup
