@@ -57,10 +57,16 @@ composer --version # Should be 2.x.x
 
 ### Quick Setup (Recommended)
 
-For automated installation, simply run:
+For automated installation:
 
+**Linux/Mac:**
 ```bash
 ./setup.sh
+```
+
+**Windows:**
+```cmd
+setup.bat
 ```
 
 The setup script will:
