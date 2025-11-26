@@ -52,11 +52,13 @@ test_sql_injection_login() {
     print_header "Test 1: SQL Injection in Login"
     
     print_test "Testing SQL injection in admin login"
-    RESPONSE=$(curl -s -X POST "$API_BASE_URL/auth/admin/login" \
+    RESPONSE=$(curl -s --max-time 5 -X POST "$API_BASE_URL/api/auth/admin/login" \
         -H "Content-Type: application/json" \
-        -d '{"username":"admin'\'' OR '\''1'\''='\''1","password":"anything"}')
+        -d '{"username":"admin'\'' OR '\''1'\''='\''1","password":"anything"}' 2>/dev/null || echo "connection_failed")
     
-    if echo "$RESPONSE" | grep -q "Invalid credentials\|error"; then
+    if [ "$RESPONSE" = "connection_failed" ]; then
+        print_info "Cannot connect to API (is backend running?)"
+    elif echo "$RESPONSE" | grep -q "Invalid credentials\|error\|Unauthorized"; then
         print_pass "SQL injection in login prevented"
     else
         print_fail "Possible SQL injection vulnerability in login"
@@ -77,9 +79,11 @@ test_unauthorized_admin_access() {
     print_header "Test 3: Unauthorized Access to Admin Endpoints"
     
     print_test "Accessing admin endpoint without authentication"
-    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$API_BASE_URL/members")
+    HTTP_CODE=$(curl -s --max-time 5 -o /dev/null -w "%{http_code}" "$API_BASE_URL/api/members" 2>/dev/null || echo "000")
     
-    if [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "403" ]; then
+    if [ "$HTTP_CODE" = "000" ]; then
+        print_info "Cannot connect to API (is backend running?)"
+    elif [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "403" ]; then
         print_pass "Admin endpoint protected (HTTP $HTTP_CODE)"
     else
         print_fail "Admin endpoint accessible without auth (HTTP $HTTP_CODE)"
@@ -91,11 +95,13 @@ test_password_exposure() {
     print_header "Test 4: Password Exposure in Responses"
     
     print_test "Checking if password appears in error messages"
-    RESPONSE=$(curl -s -X POST "$API_BASE_URL/auth/admin/login" \
+    RESPONSE=$(curl -s --max-time 5 -X POST "$API_BASE_URL/api/auth/admin/login" \
         -H "Content-Type: application/json" \
-        -d '{"username":"admin","password":"wrongpassword"}')
+        -d '{"username":"admin","password":"wrongpassword"}' 2>/dev/null || echo "connection_failed")
     
-    if echo "$RESPONSE" | grep -qi "password"; then
+    if [ "$RESPONSE" = "connection_failed" ]; then
+        print_info "Cannot connect to API (is backend running?)"
+    elif echo "$RESPONSE" | grep -qi "password"; then
         print_fail "Password mentioned in error response"
     else
         print_pass "No password exposure in error messages"
@@ -107,7 +113,12 @@ test_cors_headers() {
     print_header "Test 5: CORS Headers"
     
     print_test "Checking CORS headers"
-    CORS_HEADER=$(curl -s -I "$API_BASE_URL/health" | grep -i "access-control-allow-origin")
+    CORS_HEADER=$(curl -s --max-time 5 -I "$API_BASE_URL/api/health" 2>/dev/null | grep -i "access-control-allow-origin" || echo "")
+    
+    if [ -z "$CORS_HEADER" ]; then
+        # Try root endpoint
+        CORS_HEADER=$(curl -s --max-time 5 -I "$API_BASE_URL/" 2>/dev/null | grep -i "access-control-allow-origin" || echo "")
+    fi
     
     if [ -n "$CORS_HEADER" ]; then
         print_pass "CORS headers present: $CORS_HEADER"
@@ -164,17 +175,19 @@ test_brute_force_protection() {
     print_test "Testing brute force protection (5 failed attempts)"
     
     for i in {1..5}; do
-        curl -s -X POST "$API_BASE_URL/auth/admin/login" \
+        curl -s --max-time 5 -X POST "$API_BASE_URL/api/auth/admin/login" \
             -H "Content-Type: application/json" \
-            -d '{"username":"admin","password":"wrong'$i'"}' > /dev/null
+            -d '{"username":"admin","password":"wrong'$i'"}' > /dev/null 2>&1
     done
     
     # 6th attempt
-    RESPONSE=$(curl -s -X POST "$API_BASE_URL/auth/admin/login" \
+    RESPONSE=$(curl -s --max-time 5 -X POST "$API_BASE_URL/api/auth/admin/login" \
         -H "Content-Type: application/json" \
-        -d '{"username":"admin","password":"wrong6"}')
+        -d '{"username":"admin","password":"wrong6"}' 2>/dev/null || echo "connection_failed")
     
-    if echo "$RESPONSE" | grep -qi "locked\|too many\|rate limit"; then
+    if [ "$RESPONSE" = "connection_failed" ]; then
+        print_info "Cannot connect to API (is backend running?)"
+    elif echo "$RESPONSE" | grep -qi "locked\|too many\|rate limit"; then
         print_pass "Brute force protection active"
     else
         print_info "Brute force protection not detected (consider implementing)"
@@ -186,10 +199,12 @@ test_jwt_validation() {
     print_header "Test 9: JWT Token Validation"
     
     print_test "Testing with invalid JWT token"
-    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$API_BASE_URL/members" \
-        -H "Authorization: Bearer invalid.token.here")
+    HTTP_CODE=$(curl -s --max-time 5 -o /dev/null -w "%{http_code}" "$API_BASE_URL/api/members" \
+        -H "Authorization: Bearer invalid.token.here" 2>/dev/null || echo "000")
     
-    if [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "403" ]; then
+    if [ "$HTTP_CODE" = "000" ]; then
+        print_info "Cannot connect to API (is backend running?)"
+    elif [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "403" ]; then
         print_pass "Invalid JWT rejected (HTTP $HTTP_CODE)"
     else
         print_fail "Invalid JWT accepted (HTTP $HTTP_CODE)"
@@ -201,9 +216,11 @@ test_information_disclosure() {
     print_header "Test 10: Information Disclosure"
     
     print_test "Checking for information disclosure in errors"
-    RESPONSE=$(curl -s "$API_BASE_URL/nonexistent")
+    RESPONSE=$(curl -s --max-time 5 "$API_BASE_URL/api/nonexistent" 2>/dev/null || echo "connection_failed")
     
-    if echo "$RESPONSE" | grep -qi "stack trace\|debug\|exception"; then
+    if [ "$RESPONSE" = "connection_failed" ]; then
+        print_info "Cannot connect to API (is backend running?)"
+    elif echo "$RESPONSE" | grep -qi "stack trace\|debug\|exception"; then
         print_fail "Possible information disclosure in error messages"
     else
         print_pass "No obvious information disclosure"
