@@ -6,6 +6,19 @@
 -- The admin user and one demo member
 
 -- ============================================================================
+-- Clear existing data (in reverse order of foreign key dependencies)
+-- ============================================================================
+SET FOREIGN_KEY_CHECKS = 0;
+
+TRUNCATE TABLE `ticket_history`;
+TRUNCATE TABLE `tickets`;
+TRUNCATE TABLE `offerings`;
+TRUNCATE TABLE `members`;
+TRUNCATE TABLE `admin_users`;
+
+SET FOREIGN_KEY_CHECKS = 1;
+
+-- ============================================================================
 -- Insert Default Admin User
 -- ============================================================================
 -- Username: admin
