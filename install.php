@@ -487,16 +487,38 @@
                                     throw new Exception("Could not read schema.sql file");
                                 }
 
-                                // Execute schema (split by delimiter changes)
-                                $conn->multi_query($schema);
-                                while ($conn->next_result()) {;}
+                                // Remove DELIMITER statements (they're only for mysql CLI, not mysqli)
+                                $schema = preg_replace('/DELIMITER\s+\$\$/i', '', $schema);
+                                $schema = preg_replace('/DELIMITER\s+;/i', '', $schema);
+                                // Replace $$ with ; for procedure/trigger endings
+                                $schema = str_replace('$$', ';', $schema);
+
+                                // Execute schema
+                                if (!$conn->multi_query($schema)) {
+                                    throw new Exception("Schema import failed: " . $conn->error);
+                                }
+                                
+                                // Clear all results
+                                do {
+                                    if ($result = $conn->store_result()) {
+                                        $result->free();
+                                    }
+                                } while ($conn->more_results() && $conn->next_result());
 
                                 // Import seed data if requested
                                 if (isset($_POST['import_seed']) && $_POST['import_seed'] === '1') {
                                     $seed = file_get_contents('database/seed.sql');
                                     if ($seed !== false) {
-                                        $conn->multi_query($seed);
-                                        while ($conn->next_result()) {;}
+                                        if (!$conn->multi_query($seed)) {
+                                            throw new Exception("Seed import failed: " . $conn->error);
+                                        }
+                                        
+                                        // Clear all results
+                                        do {
+                                            if ($result = $conn->store_result()) {
+                                                $result->free();
+                                            }
+                                        } while ($conn->more_results() && $conn->next_result());
                                     }
                                 }
 
