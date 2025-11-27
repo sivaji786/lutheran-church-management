@@ -424,9 +424,22 @@
                             break;
 
                         case 'install_database':
+                            // Validate session has database config
+                            if (!isset($_SESSION['db_config'])) {
+                                $errors[] = "Database configuration not found. Please go back to Step 2.";
+                                break;
+                            }
+                            
                             $db = $_SESSION['db_config'];
                             try {
-                                $conn = new mysqli($db['host'], $db['user'], $db['pass'], '', (int)$db['port']);
+                                // Connect with proper password handling
+                                $conn = new mysqli(
+                                    $db['host'], 
+                                    $db['user'], 
+                                    isset($db['pass']) ? $db['pass'] : '', 
+                                    '', 
+                                    (int)$db['port']
+                                );
 
                                 if ($conn->connect_error) {
                                     throw new Exception($conn->connect_error);
