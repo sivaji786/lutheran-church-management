@@ -432,13 +432,21 @@
                             break;
 
                         case 'install_database':
+                            // Try to get database config from session first, then from POST as fallback
+                            if (!isset($_SESSION['db_config']) && isset($_POST['db_host'])) {
+                                // Reconstruct from POST data (fallback for session issues)
+                                $_SESSION['db_config'] = [
+                                    'host' => $_POST['db_host'],
+                                    'name' => $_POST['db_name'],
+                                    'user' => $_POST['db_user'],
+                                    'pass' => $_POST['db_pass'],
+                                    'port' => $_POST['db_port']
+                                ];
+                            }
+                            
                             // Validate session has database config
                             if (!isset($_SESSION['db_config'])) {
                                 $errors[] = "Database configuration not found in session. Please go back to Step 2 and re-enter your database details.";
-                                // Debug: Show what's in session
-                                if (isset($_GET['debug'])) {
-                                    $errors[] = "Debug: Session contents: " . print_r($_SESSION, true);
-                                }
                                 // Force back to step 2
                                 $_SESSION['step'] = 2;
                                 $step = 2;
@@ -752,6 +760,23 @@ logger.threshold = " . ($app['environment'] === 'production' ? '3' : '4') . "
                     echo '<h2 style="margin-bottom: 20px;">Database Setup</h2>';
                     echo '<p style="margin-bottom: 30px; color: #666;">Import database schema and optionally seed demo data.</p>';
                     
+                    // Get database config from session or show error
+                    if (!isset($_SESSION['db_config'])) {
+                        echo '<div class="alert alert-error">';
+                        echo '<strong>❌ Session Lost</strong><br>';
+                        echo 'Database configuration was lost. Please go back to Step 2 and re-enter your details.';
+                        echo '</div>';
+                        echo '<form method="post">';
+                        echo '<input type="hidden" name="action" value="check_prerequisites">';
+                        echo '<div class="btn-group">';
+                        echo '<button type="submit" class="btn btn-secondary">← Back to Step 2</button>';
+                        echo '</div>';
+                        echo '</form>';
+                        break;
+                    }
+                    
+                    $db = $_SESSION['db_config'];
+                    
                     echo '<div class="alert alert-info">';
                     echo '<strong>ℹ️ What will be installed:</strong><br>';
                     echo '• Database schema (8 tables, 4 views, 4 stored procedures)<br>';
@@ -760,6 +785,13 @@ logger.threshold = " . ($app['environment'] === 'production' ? '3' : '4') . "
                     
                     echo '<form method="post">';
                     echo '<input type="hidden" name="action" value="install_database">';
+                    
+                    // Add hidden fields to preserve database config (fallback for session issues)
+                    echo '<input type="hidden" name="db_host" value="' . htmlspecialchars($db['host']) . '">';
+                    echo '<input type="hidden" name="db_port" value="' . htmlspecialchars($db['port']) . '">';
+                    echo '<input type="hidden" name="db_name" value="' . htmlspecialchars($db['name']) . '">';
+                    echo '<input type="hidden" name="db_user" value="' . htmlspecialchars($db['user']) . '">';
+                    echo '<input type="hidden" name="db_pass" value="' . htmlspecialchars($db['pass']) . '">';
                     
                     echo '<div class="checkbox-group">';
                     echo '<input type="checkbox" id="import_seed" name="import_seed" value="1" checked>';
