@@ -344,7 +344,11 @@
 
         <div class="content">
             <?php
-            session_start();
+            // Start session with proper settings
+            if (session_status() === PHP_SESSION_NONE) {
+                ini_set('session.gc_maxlifetime', 3600);
+                session_start();
+            }
 
             // Check if already installed
             if (file_exists('backend/.env') && file_exists('.env') && !isset($_GET['force'])) {
@@ -413,6 +417,10 @@
                                         'pass' => $_POST['db_pass'],
                                         'port' => $_POST['db_port']
                                     ];
+                                    
+                                    // Force session write to ensure data is saved
+                                    session_write_close();
+                                    session_start();
 
                                     $conn->close();
                                     $_SESSION['step'] = 3;
@@ -426,11 +434,26 @@
                         case 'install_database':
                             // Validate session has database config
                             if (!isset($_SESSION['db_config'])) {
-                                $errors[] = "Database configuration not found. Please go back to Step 2.";
+                                $errors[] = "Database configuration not found in session. Please go back to Step 2 and re-enter your database details.";
+                                // Debug: Show what's in session
+                                if (isset($_GET['debug'])) {
+                                    $errors[] = "Debug: Session contents: " . print_r($_SESSION, true);
+                                }
+                                // Force back to step 2
+                                $_SESSION['step'] = 2;
+                                $step = 2;
                                 break;
                             }
                             
                             $db = $_SESSION['db_config'];
+                            
+                            // Validate db config has required fields
+                            if (empty($db['host']) || empty($db['user']) || empty($db['name'])) {
+                                $errors[] = "Invalid database configuration. Missing required fields. Please go back to Step 2.";
+                                $_SESSION['step'] = 2;
+                                $step = 2;
+                                break;
+                            }
                             try {
                                 // Connect with proper password handling
                                 $conn = new mysqli(
