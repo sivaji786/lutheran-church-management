@@ -579,17 +579,47 @@ logger.threshold = " . ($app['environment'] === 'production' ? '3' : '4') . "
                             $frontendEnv = "VITE_API_BASE_URL={$app['api_url']}
 ";
 
-                            // Write .env files
-                            if (!file_put_contents('backend/.env', $backendEnv)) {
-                                $errors[] = "Could not write backend/.env file. Check permissions.";
+                            // Ensure directories are writable
+                            $rootWritable = is_writable('.');
+                            $backendWritable = is_writable('backend');
+                            
+                            if (!$rootWritable) {
+                                @chmod('.', 0755);
+                                $rootWritable = is_writable('.');
                             }
-                            if (!file_put_contents('.env', $frontendEnv)) {
-                                $errors[] = "Could not write .env file. Check permissions.";
+                            
+                            if (!$backendWritable) {
+                                @chmod('backend', 0755);
+                                $backendWritable = is_writable('backend');
+                            }
+
+                            // Write backend .env file
+                            if (!$backendWritable) {
+                                $errors[] = "Backend directory is not writable. Please run: chmod 755 backend";
+                            } else {
+                                $written = @file_put_contents('backend/.env', $backendEnv);
+                                if ($written === false) {
+                                    $errors[] = "Could not write backend/.env file. Please check permissions: chmod 755 backend";
+                                } else {
+                                    @chmod('backend/.env', 0644);
+                                }
+                            }
+                            
+                            // Write frontend .env file
+                            if (!$rootWritable) {
+                                $errors[] = "Root directory is not writable. Please run: chmod 755 .";
+                            } else {
+                                $written = @file_put_contents('.env', $frontendEnv);
+                                if ($written === false) {
+                                    $errors[] = "Could not write .env file. Please check permissions: chmod 755 .";
+                                } else {
+                                    @chmod('.env', 0644);
+                                }
                             }
 
                             if (empty($errors)) {
                                 // Create installation lock file
-                                file_put_contents('.installed', date('Y-m-d H:i:s'));
+                                @file_put_contents('.installed', date('Y-m-d H:i:s'));
                                 $_SESSION['step'] = 6;
                                 $step = 6;
                             }
