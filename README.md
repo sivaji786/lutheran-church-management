@@ -55,7 +55,35 @@ composer --version # Should be 2.x.x
 
 ## 🚀 Installation
 
-### Quick Setup (Recommended)
+### Method 1: Web Installer (Recommended) ⭐
+
+The easiest way to install on any environment (local or production):
+
+1. **Upload Files**
+   - Upload all project files to your server
+   - Or clone the repository locally
+
+2. **Access Installer**
+   - Open browser: `http://localhost/install.php` (local)
+   - Or: `http://yourdomain.com/install.php` (production)
+
+3. **Follow the Wizard**
+   - 6-step guided installation
+   - Automatic prerequisites check
+   - Database setup and import
+   - Environment configuration
+   - Security key generation
+
+4. **Delete Installer**
+   ```bash
+   rm install.php  # IMPORTANT: Do this after installation!
+   ```
+
+📖 **Detailed Guide:** See [INSTALLATION.md](INSTALLATION.md) for complete instructions.
+
+---
+
+### Method 2: Automated Scripts
 
 For automated installation:
 
@@ -87,7 +115,7 @@ The setup script will:
 - ✅ Set proper permissions
 - ✅ Optionally build for production
 
-### Manual Installation
+### Method 3: Manual Installation
 
 If you prefer manual installation, follow these steps:
 

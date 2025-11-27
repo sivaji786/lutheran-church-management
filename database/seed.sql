@@ -10,6 +10,9 @@
 -- ============================================================================
 SET FOREIGN_KEY_CHECKS = 0;
 
+TRUNCATE TABLE `member_login_history`;
+TRUNCATE TABLE `sessions`;
+TRUNCATE TABLE `audit_logs`;
 TRUNCATE TABLE `ticket_history`;
 TRUNCATE TABLE `tickets`;
 TRUNCATE TABLE `offerings`;
