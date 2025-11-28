@@ -53,6 +53,15 @@ $routes->group('api', function($routes) {
         $routes->patch('(:segment)/status', 'Tickets::updateStatus/$1');
     });
     
+    // Non-Member Offerings
+    $routes->group('non-member-offerings', function($routes) {
+        $routes->get('/', 'NonMemberOfferings::index');
+        $routes->post('/', 'NonMemberOfferings::create');
+        $routes->put('(:segment)', 'NonMemberOfferings::update/$1');
+        $routes->delete('(:segment)', 'NonMemberOfferings::delete/$1');
+        $routes->get('statistics', 'NonMemberOfferings::statistics');
+    });
+    
     // Dashboard
     $routes->get('dashboard/stats', 'Dashboard::stats');
 });

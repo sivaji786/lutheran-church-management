@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { LogOut, UserPlus, DollarSign, Users, TrendingUp, LayoutDashboard, Menu, X, ArrowLeft, Ticket, Cake } from 'lucide-react';
+import { LogOut, UserPlus, DollarSign, Users, TrendingUp, LayoutDashboard, Menu, X, ArrowLeft, Ticket, Cake, HandCoins } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { MemberRegistrationForm } from './MemberRegistrationForm';
@@ -11,6 +11,7 @@ import { EditMemberPage } from './EditMemberPage';
 import { AdminTicketsTable, TicketFilters } from './AdminTicketsTable';
 import { TicketDetailPage } from './pages/TicketDetailPage';
 import { DashboardCharts } from './DashboardCharts';
+import { NonMemberOfferingsPage } from './NonMemberOfferingsPage';
 import { Member, Offering, Ticket as TicketType } from '../App';
 import { storage } from '../utils/localStorage';
 import { apiClient } from '../services/api';
@@ -22,7 +23,7 @@ type AdminDashboardProps = {
   onLogout: () => void;
 };
 
-type MenuItem = 'dashboard' | 'members' | 'offerings' | 'tickets';
+type MenuItem = 'dashboard' | 'members' | 'offerings' | 'tickets' | 'nonMemberOfferings';
 type MembersView = 'list' | 'add' | 'detail' | 'edit';
 type OfferingsView = 'list' | 'add';
 
@@ -272,6 +273,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     { id: 'dashboard' as MenuItem, label: 'Dashboard', icon: LayoutDashboard },
     { id: 'members' as MenuItem, label: 'Members', icon: Users },
     { id: 'offerings' as MenuItem, label: 'Offerings', icon: DollarSign },
+    { id: 'nonMemberOfferings' as MenuItem, label: 'Guest Offerings', icon: HandCoins },
     { id: 'tickets' as MenuItem, label: 'Tickets', icon: Ticket },
   ];
 
@@ -739,6 +741,11 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                   />
                 )}
               </div>
+            )}
+
+            {/* Non-Member Offerings View */}
+            {currentMenu === 'nonMemberOfferings' && (
+              <NonMemberOfferingsPage onBack={() => setCurrentMenu('dashboard')} />
             )}
 
             {/* Tickets View */}

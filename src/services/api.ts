@@ -337,6 +337,54 @@ class ApiClient {
         });
     }
 
+    // Non-Member Offerings
+    async getNonMemberOfferings(params?: {
+        page?: number;
+        limit?: number;
+        startDate?: string;
+        endDate?: string;
+        offerType?: string;
+        paymentMode?: string;
+        search?: string;
+        sortBy?: string;
+        sortOrder?: string;
+    }): Promise<PaginatedResponse<any>> {
+        const queryParams = new URLSearchParams();
+        if (params) {
+            Object.entries(params).forEach(([key, value]) => {
+                if (value !== undefined) {
+                    queryParams.append(key, String(value));
+                }
+            });
+        }
+        const query = queryParams.toString();
+        return this.request(`/non-member-offerings${query ? `?${query}` : ''}`);
+    }
+
+    async createNonMemberOffering(data: any): Promise<ApiResponse<any>> {
+        return this.request('/non-member-offerings', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    }
+
+    async updateNonMemberOffering(id: string, data: any): Promise<ApiResponse<any>> {
+        return this.request(`/non-member-offerings/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(data),
+        });
+    }
+
+    async deleteNonMemberOffering(id: string): Promise<ApiResponse<any>> {
+        return this.request(`/non-member-offerings/${id}`, {
+            method: 'DELETE',
+        });
+    }
+
+    async getNonMemberOfferingStatistics(): Promise<ApiResponse<any>> {
+        return this.request('/non-member-offerings/statistics');
+    }
+
     // Dashboard
     async getDashboardStats(): Promise<ApiResponse<any>> {
         return this.request('/dashboard/stats');
