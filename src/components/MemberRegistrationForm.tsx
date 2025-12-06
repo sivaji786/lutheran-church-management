@@ -9,11 +9,12 @@ import { Member } from '../App';
 import { toast } from 'sonner';
 
 type MemberRegistrationFormProps = {
-  onAddMember: (member: Member) => Promise<boolean>;
+  onAddMember: (member: Member) => Promise<Member | null>;
   existingMembers: Member[];
 };
 
 export function MemberRegistrationForm({ onAddMember, existingMembers }: MemberRegistrationFormProps) {
+  const [memberSerialNum, setMemberSerialNum] = useState('');
   const [name, setName] = useState('');
   const [occupation, setOccupation] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState('');
@@ -29,28 +30,12 @@ export function MemberRegistrationForm({ onAddMember, existingMembers }: MemberR
   const [remarks, setRemarks] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const generateMemberCode = () => {
-    // Get the highest existing member number
-    const existingCodes = existingMembers
-      .map(m => m.memberCode)
-      .filter(code => code.startsWith('LCH'))
-      .map(code => parseInt(code.replace('LCH', '')))
-      .filter(num => !isNaN(num));
-
-    const nextNumber = existingCodes.length > 0
-      ? Math.max(...existingCodes) + 1
-      : 1;
-
-    return `LCH${nextNumber.toString().padStart(3, '0')}`;
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    const memberCode = generateMemberCode();
-
     const newMember: Member = {
+      memberSerialNum: parseInt(memberSerialNum),
       name,
       occupation,
       dateOfBirth,
@@ -64,17 +49,18 @@ export function MemberRegistrationForm({ onAddMember, existingMembers }: MemberR
       area,
       ward,
       remarks,
-      memberCode,
+      memberCode: '', // Backend will generate this
       registrationDate: new Date().toISOString().split('T')[0],
       memberStatus: confirmationStatus ? 'confirmed' : 'unconfirmed',
     };
 
-    const success = await onAddMember(newMember);
+    const createdMember = await onAddMember(newMember);
 
-    if (success) {
-      toast.success(`Member registered successfully! Code: ${memberCode}`);
+    if (createdMember) {
+      // Toast is handled by parent component
 
       // Reset form
+      setMemberSerialNum('');
       setName('');
       setOccupation('');
       setDateOfBirth('');
@@ -93,6 +79,7 @@ export function MemberRegistrationForm({ onAddMember, existingMembers }: MemberR
   };
 
   const handleClearForm = () => {
+    setMemberSerialNum('');
     setName('');
     setOccupation('');
     setDateOfBirth('');
@@ -111,7 +98,7 @@ export function MemberRegistrationForm({ onAddMember, existingMembers }: MemberR
   return (
     <Card className="p-6 bg-gradient-to-br from-blue-50/50 to-white">
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Row 1 */}
+        {/* Row 1: Name and Occupation */}
         <div className="grid md:grid-cols-2 gap-6">
           <div className="space-y-2">
             <Label htmlFor="name">Full Name *</Label>
@@ -136,7 +123,7 @@ export function MemberRegistrationForm({ onAddMember, existingMembers }: MemberR
           </div>
         </div>
 
-        {/* Row 2 */}
+        {/* Row 2: DOB and Mobile */}
         <div className="grid md:grid-cols-2 gap-6">
           <div className="space-y-2">
             <Label htmlFor="dateOfBirth">Date of Birth *</Label>
@@ -163,8 +150,20 @@ export function MemberRegistrationForm({ onAddMember, existingMembers }: MemberR
           </div>
         </div>
 
-        {/* Row 3 */}
+        {/* Row 3: Serial Number and Aadhar */}
         <div className="grid md:grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <Label htmlFor="memberSerialNum">Serial Number *</Label>
+            <Input
+              id="memberSerialNum"
+              type="number"
+              placeholder="Enter serial number (e.g. 1)"
+              value={memberSerialNum}
+              onChange={(e) => setMemberSerialNum(e.target.value)}
+              required
+            />
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="aadharNumber">Aadhar Number *</Label>
             <Input
@@ -180,7 +179,7 @@ export function MemberRegistrationForm({ onAddMember, existingMembers }: MemberR
           </div>
         </div>
 
-        {/* Status Switches */}
+        {/* Row 4: Status Switches */}
         <div className="grid md:grid-cols-2 gap-6">
           <div className="flex items-center justify-between p-4 bg-white rounded-lg border border-slate-200">
             <div className="space-y-1">
@@ -241,19 +240,20 @@ export function MemberRegistrationForm({ onAddMember, existingMembers }: MemberR
           </div>
         </div>
 
-        {/* Address Details */}
-        <div className="grid md:grid-cols-2 gap-6">
-          <div className="space-y-2">
-            <Label htmlFor="address">Address *</Label>
-            <Input
-              id="address"
-              placeholder="Enter address"
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              required
-            />
-          </div>
+        {/* Row 5: Address (Full Width) */}
+        <div className="space-y-2">
+          <Label htmlFor="address">Address *</Label>
+          <Input
+            id="address"
+            placeholder="Enter address"
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            required
+          />
+        </div>
 
+        {/* Row 6: Area and Ward */}
+        <div className="grid md:grid-cols-2 gap-6">
           <div className="space-y-2">
             <Label htmlFor="area">Area *</Label>
             <Input
@@ -264,9 +264,7 @@ export function MemberRegistrationForm({ onAddMember, existingMembers }: MemberR
               required
             />
           </div>
-        </div>
 
-        <div className="grid md:grid-cols-2 gap-6">
           <div className="space-y-2">
             <Label htmlFor="ward">Ward *</Label>
             <Input

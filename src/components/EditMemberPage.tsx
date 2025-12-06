@@ -46,6 +46,7 @@ export function EditMemberPage({
         area: member.area,
         ward: member.ward,
         remarks: member.remarks,
+        memberSerialNum: member.memberSerialNum,
       });
     }
   }, [member]);
@@ -100,7 +101,7 @@ export function EditMemberPage({
       payload.memberStatus = 'confirmed';
     }
 
-    const success = await onUpdateMember(member.id, payload);
+    const success = await onUpdateMember(member.id!, payload);
 
     if (success) {
       toast.success(`Member ${formData.name} updated successfully`);
@@ -191,6 +192,23 @@ export function EditMemberPage({
               {/* Basic Information Tab */}
               <TabsContent value="basic" className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="memberSerialNum" className="text-slate-900">
+                      Serial Number
+                    </Label>
+                    <Input
+                      id="memberSerialNum"
+                      type="number"
+                      value={formData.memberSerialNum || ''}
+                      onChange={(e) => setFormData({ ...formData, memberSerialNum: parseInt(e.target.value) || undefined })}
+                      placeholder="Enter serial number"
+                      className="h-11"
+                    />
+                    <p className="text-xs text-amber-600">
+                      Warning: Changing this will regenerate the Member Code.
+                    </p>
+                  </div>
+
                   <div className="space-y-2">
                     <Label htmlFor="name" className="text-slate-900">
                       Full Name <span className="text-red-500">*</span>

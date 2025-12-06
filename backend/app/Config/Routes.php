@@ -23,6 +23,7 @@ $routes->group('api', function($routes) {
     $routes->group('auth', function($routes) {
         $routes->post('admin/login', 'Auth::adminLogin');
         $routes->post('member/login', 'Auth::memberLogin');
+        $routes->post('change-password', 'Auth::changePassword');
     });
     
     // Members

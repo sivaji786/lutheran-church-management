@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LogOut, User, DollarSign, Calendar, LayoutDashboard, Menu, X, Ticket, KeyRound } from 'lucide-react';
+import { LogOut, User, DollarSign, Calendar, LayoutDashboard, Menu, X, Ticket, KeyRound, Users } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
@@ -20,7 +20,7 @@ type MemberDashboardProps = {
   onLogout: () => void;
 };
 
-type MenuItem = 'dashboard' | 'my-details' | 'my-offerings' | 'my-tickets';
+type MenuItem = 'dashboard' | 'my-details' | 'my-family' | 'my-offerings' | 'my-tickets';
 
 export function MemberDashboard({
   memberCode,
@@ -39,10 +39,12 @@ export function MemberDashboard({
   const memberOfferings = offerings.filter((o) => o.memberId === member?.id);
   const totalOfferings = memberOfferings.reduce((sum, offering) => sum + offering.amount, 0);
   const memberTickets = tickets.filter((t) => t.memberId === member?.id);
+  const familyMembers = members.filter(m => m.memberSerialNum === member?.memberSerialNum).sort((a, b) => (a.memberOrder || 0) - (b.memberOrder || 0));
 
   const menuItems = [
     { id: 'dashboard' as MenuItem, label: 'Dashboard', icon: LayoutDashboard },
     { id: 'my-details' as MenuItem, label: 'My Details', icon: User },
+    { id: 'my-family' as MenuItem, label: 'My Family', icon: Users },
     { id: 'my-offerings' as MenuItem, label: 'My Offerings', icon: DollarSign },
     { id: 'my-tickets' as MenuItem, label: 'My Tickets', icon: Ticket },
   ];
@@ -292,6 +294,12 @@ export function MemberDashboard({
                         <p className="text-slate-900 text-lg">{member.name}</p>
                       </div>
                       <div className="space-y-2">
+                        <p className="text-slate-500 text-sm uppercase tracking-wide">Serial Number</p>
+                        <p className="text-slate-900 text-lg font-mono">
+                          {member.memberSerialNum?.toString().padStart(4, '0') || '-'}
+                        </p>
+                      </div>
+                      <div className="space-y-2">
                         <p className="text-slate-500 text-sm uppercase tracking-wide">Member Code</p>
                         <Badge className="bg-blue-600 text-white text-base px-4 py-1">
                           {member.memberCode}
@@ -347,6 +355,72 @@ export function MemberDashboard({
                           <strong>Security Tip:</strong> Choose a strong password with at least 8 characters, including letters and numbers.
                         </p>
                       </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* My Family View */}
+            {currentMenu === 'my-family' && (
+              <div className="space-y-6">
+                <div>
+                  <h1 className="text-blue-900 mb-2">My Family</h1>
+                  <p className="text-slate-600">Family members registered under the same serial number.</p>
+                </div>
+
+                <Card className="border-blue-100 shadow-elegant-lg">
+                  <CardHeader className="bg-gradient-to-r from-blue-50 to-white border-b">
+                    <CardTitle className="text-blue-900 flex items-center gap-2">
+                      <Users className="w-5 h-5" />
+                      Family Members
+                    </CardTitle>
+                    <CardDescription>
+                      Serial Number: {member.memberSerialNum?.toString().padStart(4, '0')}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="pt-6">
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Name</TableHead>
+                            <TableHead>Relation / Role</TableHead>
+                            <TableHead>Mobile</TableHead>
+                            <TableHead>Date of Birth</TableHead>
+                            <TableHead>Status</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {familyMembers.map((fm) => (
+                            <TableRow key={fm.id} className={fm.id === member.id ? 'bg-blue-50/50' : ''}>
+                              <TableCell className="font-medium">
+                                {fm.name}
+                                {fm.id === member.id && (
+                                  <Badge variant="secondary" className="ml-2 text-xs">You</Badge>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {fm.headOfFamily === fm.name ? 'Head of Family' : (fm.memberOrder === 1 ? 'Head of Family' : 'Member')}
+                              </TableCell>
+                              <TableCell>{fm.mobile || '-'}</TableCell>
+                              <TableCell>
+                                {new Date(fm.dateOfBirth).toLocaleDateString('en-IN', {
+                                  day: 'numeric',
+                                  month: 'short',
+                                  year: 'numeric'
+                                })}
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant={fm.memberStatus === 'confirmed' ? 'default' : 'secondary'}
+                                  className={fm.memberStatus === 'confirmed' ? 'bg-green-100 text-green-800 hover:bg-green-200' : ''}>
+                                  {fm.memberStatus}
+                                </Badge>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
                     </div>
                   </CardContent>
                 </Card>

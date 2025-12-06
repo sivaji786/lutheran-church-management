@@ -70,11 +70,11 @@ export function LoginPage({ onLogin, onNavigate }: LoginPageProps) {
 
   const loadMemberDemo = () => {
     if (memberLoginType === 'mobile') {
-      setMemberMobile('9876543210');
-      setMemberPassword('member123');
+      setMemberMobile('9949639184');
+      setMemberPassword('Member@123');
     } else {
-      setMemberCode('LCH001');
-      setMemberPassword('member123');
+      setMemberCode('LCH-0466-5');
+      setMemberPassword('Member@123');
     }
     toast.info('Demo credentials loaded. Click Sign In to continue.');
   };
@@ -282,12 +282,12 @@ export function LoginPage({ onLogin, onNavigate }: LoginPageProps) {
                             <p className="text-sm text-slate-600">
                               {memberLoginType === 'mobile' ? 'Mobile' : 'Member Code'}:{' '}
                               <code className="bg-white px-2 py-1 rounded text-blue-900">
-                                {memberLoginType === 'mobile' ? '9876543210' : 'LCH001'}
+                                {memberLoginType === 'mobile' ? '9949639184' : 'LCH-0466-5'}
                               </code>
                             </p>
                             <p className="text-sm text-slate-600">
                               Password:{' '}
-                              <code className="bg-white px-2 py-1 rounded text-blue-900">member123</code>
+                              <code className="bg-white px-2 py-1 rounded text-blue-900">Member@123</code>
                             </p>
                           </div>
                         </form>

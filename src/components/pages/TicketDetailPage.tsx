@@ -21,10 +21,10 @@ const getStatusColor = (status: Ticket['status']) => {
             return 'bg-amber-100 text-amber-800 border-amber-200';
         case 'In Progress':
             return 'bg-blue-100 text-blue-800 border-blue-200';
-        case 'Updated':
-            return 'bg-purple-100 text-purple-800 border-purple-200';
-        case 'Done':
+        case 'Resolved':
             return 'bg-green-100 text-green-800 border-green-200';
+        case 'Closed':
+            return 'bg-slate-100 text-slate-800 border-slate-200';
     }
 };
 
@@ -185,8 +185,8 @@ export function TicketDetailPage({ ticket, onUpdateTicket, onBack }: TicketDetai
                                         <SelectContent>
                                             <SelectItem value="Open">Open</SelectItem>
                                             <SelectItem value="In Progress">In Progress</SelectItem>
-                                            <SelectItem value="Updated">Updated</SelectItem>
-                                            <SelectItem value="Done">Done</SelectItem>
+                                            <SelectItem value="Resolved">Resolved</SelectItem>
+                                            <SelectItem value="Closed">Closed</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>

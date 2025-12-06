@@ -1,5 +1,8 @@
 import React from 'react';
-import { User, Mail, Phone, MapPin, DollarSign, Calendar, ArrowLeft, TrendingUp, PieChart, IdCard, Briefcase, Cake, Church, Heart, Home, CheckCircle, XCircle, BanIcon, Edit, KeyRound } from 'lucide-react';
+import { User, Mail, Phone, MapPin, DollarSign, Calendar, ArrowLeft, TrendingUp, PieChart, IdCard, Briefcase, Cake, Church, Heart, Home, CheckCircle, XCircle, BanIcon, Edit, KeyRound, Printer } from 'lucide-react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import churchLogo from '../assets/church_logo_new.png';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -15,47 +18,48 @@ type MemberDetailViewProps = {
   onResetPassword: (memberId: string, newPassword: string) => void;
   onEditMember: () => void;
   onBack: () => void;
+  onMemberClick?: (member: Member) => void;
 };
 
-export function MemberDetailView({ member, offerings, onUpdateMemberStatus, onResetPassword, onEditMember, onBack }: MemberDetailViewProps) {
+export function MemberDetailView({ member, offerings, onUpdateMemberStatus, onResetPassword, onEditMember, onBack, onMemberClick }: MemberDetailViewProps) {
   const [showResetPasswordDialog, setShowResetPasswordDialog] = React.useState(false);
 
   // Get offerings for this member
   const memberOfferings = offerings.filter(o => o.memberId === member.id);
-  
+
   // Calculate statistics
   const totalContributions = memberOfferings.reduce((sum, o) => sum + o.amount, 0);
-  const averageContribution = memberOfferings.length > 0 
-    ? totalContributions / memberOfferings.length 
+  const averageContribution = memberOfferings.length > 0
+    ? totalContributions / memberOfferings.length
     : 0;
-  
+
   // This month offerings
   const thisMonthOfferings = memberOfferings.filter(o => {
     const offeringDate = new Date(o.date);
     const now = new Date();
-    return offeringDate.getMonth() === now.getMonth() && 
-           offeringDate.getFullYear() === now.getFullYear();
+    return offeringDate.getMonth() === now.getMonth() &&
+      offeringDate.getFullYear() === now.getFullYear();
   });
   const thisMonthTotal = thisMonthOfferings.reduce((sum, o) => sum + o.amount, 0);
-  
+
   // Offering type breakdown
   const offeringsByType = memberOfferings.reduce((acc, o) => {
     acc[o.offerType] = (acc[o.offerType] || 0) + o.amount;
     return acc;
   }, {} as Record<string, number>);
-  
+
   // Sort offerings by date (most recent first)
-  const sortedOfferings = [...memberOfferings].sort((a, b) => 
+  const sortedOfferings = [...memberOfferings].sort((a, b) =>
     new Date(b.date).getTime() - new Date(a.date).getTime()
   );
-  
+
   // Last offering date
-  const lastOfferingDate = sortedOfferings.length > 0 
+  const lastOfferingDate = sortedOfferings.length > 0
     ? new Date(sortedOfferings[0].date).toLocaleDateString('en-IN', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-      })
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    })
     : 'No offerings yet';
 
   // Calculate age
@@ -68,6 +72,155 @@ export function MemberDetailView({ member, offerings, onUpdateMemberStatus, onRe
       age--;
     }
     return age;
+  };
+
+  const handlePrintFamilyDetails = async () => {
+    const doc = new jsPDF({ orientation: 'landscape' });
+
+    // Page width for landscape A4 is roughly 297mm
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const centerX = pageWidth / 2;
+
+    // Add Logo
+    try {
+      const img = new Image();
+      img.src = churchLogo;
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+      });
+      doc.addImage(img, 'PNG', 15, 10, 25, 25);
+    } catch (error) {
+      console.error("Error loading logo:", error);
+    }
+
+    // Header
+    doc.setFontSize(10);
+    doc.setTextColor(0, 128, 0); // Green
+    doc.text('ANDHRA EVANGELICAL LUTHERAN CHURCH', centerX, 15, { align: 'center' });
+
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(255, 0, 0); // Red
+    doc.text("HYDERABAD 'A-1' PARISH", centerX, 23, { align: 'center' });
+
+    doc.setFontSize(10);
+    doc.setTextColor(0, 128, 0); // Green
+    doc.text('Central Guntur Synod', centerX, 29, { align: 'center' });
+
+    doc.setFontSize(9);
+    doc.setTextColor(0, 0, 0); // Black
+    doc.setFont('helvetica', 'normal');
+    doc.text('6-1-68, Lakdi-ka-Pul, Saifabad, Hyderabad – 500 004.', centerX, 34, { align: 'center' });
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('MEMBERSHIP FORM', centerX, 39, { align: 'center' });
+    doc.line(centerX - 20, 40, centerX + 20, 40); // Underline
+
+    // Member Details
+    let yPos = 50;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Name & Address:', 14, yPos);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(0, 0, 255); // Blue
+    doc.text(member.name, 45, yPos);
+
+    doc.setTextColor(0, 0, 0); // Black
+    doc.setFont('helvetica', 'bold');
+    // Adjust position for landscape
+    doc.text('Serial No :', 220, yPos);
+    doc.setTextColor(0, 0, 255); // Blue
+    doc.text(member.memberSerialNum ? member.memberSerialNum.toString().padStart(4, '0') : '', 240, yPos);
+
+    yPos += 7;
+    doc.setTextColor(0, 0, 255); // Blue
+    // Split address into multiple lines if needed
+    const addressLines = doc.splitTextToSize(member.address, 150); // Wider address area
+    doc.text(addressLines, 14, yPos);
+
+    doc.setTextColor(0, 0, 0); // Black
+    doc.setFont('helvetica', 'bold');
+    doc.text('Area', 220, yPos);
+    doc.text(':', 237, yPos);
+    doc.setTextColor(0, 0, 255); // Blue
+    doc.text(member.area, 240, yPos);
+
+    yPos += 7;
+    doc.setTextColor(0, 0, 0); // Black
+    doc.setFont('helvetica', 'bold');
+    doc.text('Ward', 220, yPos);
+    doc.text(':', 237, yPos);
+    doc.setTextColor(0, 0, 255); // Blue
+    doc.text(`"${member.ward}"`, 240, yPos);
+
+    yPos += Math.max(addressLines.length * 5, 7);
+    doc.setTextColor(0, 0, 0); // Black
+    doc.setFont('helvetica', 'bold');
+    doc.text('Mob No:', 14, yPos);
+    doc.setTextColor(0, 0, 255); // Blue
+    doc.text(member.mobile, 30, yPos);
+
+    // Table
+    const tableColumn = [
+      "S No", "Full Name", "Occupation", "Date of Birth",
+      "Baptism", "Confirmation", "Marital",
+      "Aadhar No", "Residential", "Mobile Number"
+    ];
+
+    const tableRows = member.familyMembers?.map((fm, index) => [
+      index + 1,
+      fm.name,
+      fm.occupation,
+      fm.dateOfBirth ? new Date(fm.dateOfBirth).toLocaleDateString('en-GB') : '',
+      fm.baptismStatus ? 'Yes' : 'No',
+      fm.confirmationStatus ? 'Yes' : 'No',
+      fm.maritalStatus ? 'Yes' : 'No',
+      fm.aadharNumber || '',
+      fm.residentialStatus ? 'Resident' : 'Non-Res',
+      fm.mobile || ''
+    ]);
+
+    autoTable(doc, {
+      startY: yPos + 10,
+      head: [tableColumn],
+      body: tableRows || [],
+      theme: 'grid',
+      headStyles: {
+        fillColor: [255, 255, 255],
+        textColor: [0, 0, 0],
+        lineColor: [0, 0, 0],
+        lineWidth: 0.1,
+        fontStyle: 'bold',
+        halign: 'center',
+        valign: 'middle',
+        fontSize: 10 // Increased font size
+      },
+      styles: {
+        lineColor: [0, 0, 0],
+        lineWidth: 0.1,
+        textColor: [0, 0, 0],
+        fontSize: 9, // Increased font size
+        cellPadding: 3, // Increased padding
+        valign: 'middle',
+        overflow: 'linebreak'
+      },
+      columnStyles: {
+        0: { halign: 'center', cellWidth: 15 }, // S No
+        1: { cellWidth: 50 }, // Full Name - Wider
+        2: { cellWidth: 30 }, // Occupation - Wider
+        3: { halign: 'center', cellWidth: 25 }, // DOB
+        4: { halign: 'center', cellWidth: 20 }, // Baptism
+        5: { halign: 'center', cellWidth: 25 }, // Confirmation
+        6: { halign: 'center', cellWidth: 20 }, // Marital
+        7: { halign: 'center', cellWidth: 30 }, // Aadhar - Wider
+        8: { halign: 'center', cellWidth: 25 }, // Residential
+        9: { halign: 'center', cellWidth: 25 }  // Mobile
+      }
+    });
+
+    doc.save(`Family_Details_${member.memberSerialNum || member.memberCode}.pdf`);
   };
 
   return (
@@ -95,17 +248,22 @@ export function MemberDetailView({ member, offerings, onUpdateMemberStatus, onRe
               <div className="flex-1">
                 <CardTitle className="text-blue-900 text-2xl mb-2">{member.name}</CardTitle>
                 <div className="flex flex-wrap gap-3">
+                  {member.memberSerialNum && (
+                    <Badge className="bg-blue-600 text-white">
+                      {member.memberSerialNum.toString().padStart(4, '0')}
+                    </Badge>
+                  )}
                   <Badge className="bg-blue-600 text-white">
                     {member.memberCode}
                   </Badge>
-                  <Badge 
-                    variant="outline" 
+                  <Badge
+                    variant="outline"
                     className={
-                      member.memberStatus === 'confirmed' 
-                        ? 'bg-green-50 text-green-700 border-green-300' 
+                      member.memberStatus === 'confirmed'
+                        ? 'bg-green-50 text-green-700 border-green-300'
                         : member.memberStatus === 'suspended'
-                        ? 'bg-red-50 text-red-700 border-red-300'
-                        : 'bg-amber-50 text-amber-700 border-amber-300'
+                          ? 'bg-red-50 text-red-700 border-red-300'
+                          : 'bg-amber-50 text-amber-700 border-amber-300'
                     }
                   >
                     {member.memberStatus === 'confirmed' && <CheckCircle className="w-3 h-3 mr-1" />}
@@ -148,6 +306,15 @@ export function MemberDetailView({ member, offerings, onUpdateMemberStatus, onRe
                 Personal Information
               </h3>
               <div className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <User className="w-4 h-4 text-slate-400 mt-1" />
+                  <div>
+                    <p className="text-sm text-slate-500">Serial Number</p>
+                    <p className="text-slate-900 font-mono">
+                      {member.memberSerialNum ? member.memberSerialNum.toString().padStart(4, '0') : '-'}
+                    </p>
+                  </div>
+                </div>
                 <div className="flex items-start gap-3">
                   <Briefcase className="w-4 h-4 text-slate-400 mt-1" />
                   <div>
@@ -264,6 +431,96 @@ export function MemberDetailView({ member, offerings, onUpdateMemberStatus, onRe
         </CardContent>
       </Card>
 
+      {/* Family Details Section */}
+      {member.familyMembers && member.familyMembers.length > 0 && (
+        <Card className="border-indigo-100 shadow-elegant">
+          <CardHeader>
+            <CardTitle className="text-blue-900 flex items-center gap-2">
+              <User className="w-5 h-5 text-indigo-600" />
+              Family Details (Serial No: {member.memberSerialNum?.toString().padStart(4, '0')})
+            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardDescription>Family members registered under the same serial number</CardDescription>
+              <Button
+                onClick={handlePrintFamilyDetails}
+                variant="outline"
+                size="sm"
+                className="gap-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+              >
+                <Printer className="w-4 h-4" />
+                Print Form
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="border rounded-lg overflow-hidden overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-slate-50">
+                    <TableHead className="w-[50px]">S.No</TableHead>
+                    <TableHead>Full Name</TableHead>
+                    <TableHead>Occupation</TableHead>
+                    <TableHead>Date of Birth</TableHead>
+                    <TableHead>Baptism</TableHead>
+                    <TableHead>Confirmation</TableHead>
+                    <TableHead>Marital</TableHead>
+                    <TableHead>Aadhar No</TableHead>
+                    <TableHead>Resident</TableHead>
+                    <TableHead>Mobile Number</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {member.familyMembers.map((fm) => (
+                    <TableRow
+                      key={fm.id}
+                      className={`${fm.id === member.id ? "bg-blue-50/50" : "hover:bg-slate-50 cursor-pointer transition-colors"}`}
+                      onClick={() => {
+                        if (fm.id !== member.id && onMemberClick) {
+                          onMemberClick(fm);
+                        }
+                      }}
+                    >
+                      <TableCell className="font-medium">{fm.memberOrder}</TableCell>
+                      <TableCell className="font-medium text-slate-900">{fm.name}</TableCell>
+                      <TableCell>{fm.occupation}</TableCell>
+                      <TableCell>
+                        {fm.dateOfBirth ? new Date(fm.dateOfBirth).toLocaleDateString('en-IN', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric'
+                        }) : '-'}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={fm.baptismStatus ? "default" : "secondary"} className={fm.baptismStatus ? "bg-green-100 text-green-800 hover:bg-green-200" : ""}>
+                          {fm.baptismStatus ? 'Yes' : 'No'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={fm.confirmationStatus ? "default" : "secondary"} className={fm.confirmationStatus ? "bg-blue-100 text-blue-800 hover:bg-blue-200" : ""}>
+                          {fm.confirmationStatus ? 'Yes' : 'No'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={fm.maritalStatus ? "bg-pink-50 text-pink-700 border-pink-200" : "bg-slate-50 text-slate-700 border-slate-200"}>
+                          {fm.maritalStatus ? 'Yes' : 'No'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">{fm.aadharNumber || '-'}</TableCell>
+                      <TableCell>
+                        <span className={fm.residentialStatus ? "text-green-700" : "text-amber-700"}>
+                          {fm.residentialStatus ? 'Resident' : 'Non-Resident'}
+                        </span>
+                      </TableCell>
+                      <TableCell>{fm.mobile || '-'}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Member Status Management - Admin Actions */}
       <Card className="border-indigo-100 shadow-elegant">
         <CardHeader>
@@ -274,8 +531,10 @@ export function MemberDetailView({ member, offerings, onUpdateMemberStatus, onRe
           <div className="flex flex-wrap gap-3">
             <Button
               onClick={() => {
-                onUpdateMemberStatus(member.id, 'confirmed');
-                toast.success(`${member.name} has been confirmed as a member`);
+                if (member.id) {
+                  onUpdateMemberStatus(member.id, 'confirmed');
+                  toast.success(`${member.name} has been confirmed as a member`);
+                }
               }}
               disabled={member.memberStatus === 'confirmed'}
               className="bg-green-600 hover:bg-green-700 disabled:opacity-50"
@@ -283,11 +542,13 @@ export function MemberDetailView({ member, offerings, onUpdateMemberStatus, onRe
               <CheckCircle className="w-4 h-4 mr-2" />
               Confirm Member
             </Button>
-            
+
             <Button
               onClick={() => {
-                onUpdateMemberStatus(member.id, 'unconfirmed');
-                toast.success(`${member.name}'s status has been set to unconfirmed`);
+                if (member.id) {
+                  onUpdateMemberStatus(member.id, 'unconfirmed');
+                  toast.success(`${member.name}'s status has been set to unconfirmed`);
+                }
               }}
               disabled={member.memberStatus === 'unconfirmed'}
               variant="outline"
@@ -296,11 +557,13 @@ export function MemberDetailView({ member, offerings, onUpdateMemberStatus, onRe
               <XCircle className="w-4 h-4 mr-2" />
               Mark as Unconfirmed
             </Button>
-            
+
             <Button
               onClick={() => {
-                onUpdateMemberStatus(member.id, 'suspended');
-                toast.success(`${member.name} has been suspended`);
+                if (member.id) {
+                  onUpdateMemberStatus(member.id, 'suspended');
+                  toast.success(`${member.name} has been suspended`);
+                }
               }}
               disabled={member.memberStatus === 'suspended'}
               variant="outline"
@@ -310,16 +573,16 @@ export function MemberDetailView({ member, offerings, onUpdateMemberStatus, onRe
               Suspend Member
             </Button>
           </div>
-          
+
           <div className="mt-4 p-4 bg-slate-50 rounded-lg">
             <p className="text-sm text-slate-600">
               <strong>Current Status:</strong>{' '}
               <span className={
-                member.memberStatus === 'confirmed' 
-                  ? 'text-green-700' 
+                member.memberStatus === 'confirmed'
+                  ? 'text-green-700'
                   : member.memberStatus === 'suspended'
-                  ? 'text-red-700'
-                  : 'text-amber-700'
+                    ? 'text-red-700'
+                    : 'text-amber-700'
               }>
                 {member.memberStatus.charAt(0).toUpperCase() + member.memberStatus.slice(1)}
               </span>
@@ -397,30 +660,32 @@ export function MemberDetailView({ member, offerings, onUpdateMemberStatus, onRe
       </div>
 
       {/* Offering Breakdown by Type */}
-      {Object.keys(offeringsByType).length > 0 && (
-        <Card className="border-pink-100 shadow-elegant">
-          <CardHeader>
-            <CardTitle className="text-blue-900 flex items-center gap-2">
-              <PieChart className="w-5 h-5 text-pink-600" />
-              Offering Breakdown by Type
-            </CardTitle>
-            <CardDescription>Total contributions by offering type</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {Object.entries(offeringsByType).map(([type, amount]) => (
-                <div key={type} className="p-4 bg-gradient-to-br from-slate-50 to-white rounded-lg border border-slate-200">
-                  <p className="text-sm text-slate-600 mb-1">{type}</p>
-                  <p className="text-green-900 text-xl">₹{amount.toLocaleString('en-IN')}</p>
-                  <p className="text-slate-500 text-sm mt-1">
-                    {Math.round((amount / totalContributions) * 100)}% of total
-                  </p>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {
+        Object.keys(offeringsByType).length > 0 && (
+          <Card className="border-pink-100 shadow-elegant">
+            <CardHeader>
+              <CardTitle className="text-blue-900 flex items-center gap-2">
+                <PieChart className="w-5 h-5 text-pink-600" />
+                Offering Breakdown by Type
+              </CardTitle>
+              <CardDescription>Total contributions by offering type</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {Object.entries(offeringsByType).map(([type, amount]) => (
+                  <div key={type} className="p-4 bg-gradient-to-br from-slate-50 to-white rounded-lg border border-slate-200">
+                    <p className="text-sm text-slate-600 mb-1">{type}</p>
+                    <p className="text-green-900 text-xl">₹{amount.toLocaleString('en-IN')}</p>
+                    <p className="text-slate-500 text-sm mt-1">
+                      {Math.round((amount / totalContributions) * 100)}% of total
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )
+      }
 
       {/* Offering History */}
       <Card className="border-slate-200 shadow-elegant">
@@ -484,6 +749,6 @@ export function MemberDetailView({ member, offerings, onUpdateMemberStatus, onRe
         member={member}
         onResetPassword={onResetPassword}
       />
-    </div>
+    </div >
   );
 }

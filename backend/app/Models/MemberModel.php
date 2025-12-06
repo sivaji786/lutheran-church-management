@@ -17,7 +17,8 @@ class MemberModel extends Model
         'baptism_status', 'confirmation_status', 'marital_status', 'residential_status',
         'aadhar_number', 'mobile', 'address', 'area', 'ward', 'remarks',
         'member_status', 'password', 'registration_date', 'last_login',
-        'failed_login_attempts', 'locked_until', 'created_by'
+        'failed_login_attempts', 'locked_until', 'created_by',
+        'family_id', 'member_serial_num', 'member_order', 'head_of_family'
     ];
 
     protected bool $allowEmptyInserts = false;

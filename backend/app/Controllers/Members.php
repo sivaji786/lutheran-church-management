@@ -18,7 +18,7 @@ class Members extends BaseController
         $limit = $this->request->getVar('limit') ?? 20;
         $search = $this->request->getVar('search');
         $memberStatus = $this->request->getVar('memberStatus');
-        $sortBy = $this->request->getVar('sortBy') ?? 'registration_date';
+        $sortBy = $this->request->getVar('sortBy') ?? 'created_at';
         $sortOrder = $this->request->getVar('sortOrder') ?? 'desc';
 
         $builder = $model->builder();
@@ -28,6 +28,7 @@ class Members extends BaseController
                 ->like('name', $search)
                 ->orLike('member_code', $search)
                 ->orLike('mobile', $search)
+                ->orLike('member_serial_num', $search)
                 ->groupEnd();
         }
 
@@ -53,6 +54,30 @@ class Members extends BaseController
         $residentialStatus = $this->request->getVar('residentialStatus');
         if ($residentialStatus !== null && $residentialStatus !== 'all') {
             $builder->where('residential_status', $residentialStatus === 'resident' ? 1 : 0);
+        }
+
+        $occupation = $this->request->getVar('occupation');
+        if ($occupation !== null && $occupation !== 'all') {
+            if ($occupation === 'no_data') {
+                $builder->groupStart()
+                        ->where('occupation', null)
+                        ->orWhere('occupation', '')
+                        ->groupEnd();
+            } else {
+                $builder->where('occupation', $occupation);
+            }
+        }
+
+        $ward = $this->request->getVar('ward');
+        if ($ward !== null && $ward !== 'all') {
+            if ($ward === 'no_data') {
+                $builder->groupStart()
+                        ->where('ward', null)
+                        ->orWhere('ward', '')
+                        ->groupEnd();
+            } else {
+                $builder->where('ward', $ward);
+            }
         }
 
         $birthday = $this->request->getVar('birthday');
@@ -108,6 +133,24 @@ class Members extends BaseController
         $member['marital_status'] = (bool)$member['marital_status'];
         $member['residential_status'] = (bool)$member['residential_status'];
 
+        // Fetch family members
+        $familyMembers = [];
+        if (!empty($member['member_serial_num'])) {
+            $familyMembers = $model->where('member_serial_num', $member['member_serial_num'])
+                                   ->orderBy('member_order', 'ASC')
+                                   ->findAll();
+            
+            // Cast boolean fields for family members
+            foreach ($familyMembers as &$fm) {
+                unset($fm['password']);
+                $fm['baptism_status'] = (bool)$fm['baptism_status'];
+                $fm['confirmation_status'] = (bool)$fm['confirmation_status'];
+                $fm['marital_status'] = (bool)$fm['marital_status'];
+                $fm['residential_status'] = (bool)$fm['residential_status'];
+            }
+        }
+        $member['family_members'] = $familyMembers;
+
         return $this->respond([
             'success' => true,
             'data' => $member
@@ -131,10 +174,27 @@ class Members extends BaseController
         if (isset($data['memberStatus'])) $data['member_status'] = $data['memberStatus'];
         
         // Generate member code
-        $db = \Config\Database::connect();
-        $query = $db->query("CALL sp_generate_member_code(@next_code)");
-        $result = $db->query("SELECT @next_code as member_code")->getRow();
-        $data['member_code'] = $result->member_code;
+        // Formula: "LCH" + "-" + "member_serial_number" + "-" +"family_id" (member_order)
+        if (isset($data['member_serial_num'])) {
+            $serialNum = $data['member_serial_num'];
+            
+            // Calculate member_order
+            $db = \Config\Database::connect();
+            $query = $db->query("SELECT MAX(member_order) as max_order FROM members WHERE member_serial_num = ?", [$serialNum]);
+            $result = $query->getRow();
+            $nextOrder = ($result && $result->max_order) ? (int)$result->max_order + 1 : 1;
+            
+            $data['member_order'] = $nextOrder;
+            
+            $serial = str_pad($serialNum, 4, '0', STR_PAD_LEFT);
+            $data['member_code'] = "LCH-{$serial}-{$nextOrder}";
+        } else {
+            // Fallback to stored procedure if serial number is missing
+            $db = \Config\Database::connect();
+            $query = $db->query("CALL sp_generate_member_code(@next_code)");
+            $result = $db->query("SELECT @next_code as member_code")->getRow();
+            $data['member_code'] = $result->member_code;
+        }
         
         // Hash password
         if (isset($data['password'])) {
@@ -183,6 +243,28 @@ class Members extends BaseController
         
         // Don't allow updating certain fields
         unset($data['id'], $data['member_code'], $data['password'], $data['registration_date']);
+
+        // Handle member_serial_num update
+        if (isset($data['memberSerialNum'])) {
+            $newSerial = $data['memberSerialNum'];
+            
+            // Only proceed if serial number is actually changing
+            if ($newSerial != $member['member_serial_num']) {
+                $data['member_serial_num'] = $newSerial;
+                
+                // Calculate new member_order for the new serial number
+                $db = \Config\Database::connect();
+                $query = $db->query("SELECT MAX(member_order) as max_order FROM members WHERE member_serial_num = ?", [$newSerial]);
+                $result = $query->getRow();
+                $nextOrder = ($result && $result->max_order) ? (int)$result->max_order + 1 : 1;
+                
+                $data['member_order'] = $nextOrder;
+                
+                // Generate new member_code
+                $serial = str_pad($newSerial, 4, '0', STR_PAD_LEFT);
+                $data['member_code'] = "LCH-{$serial}-{$nextOrder}";
+            }
+        }
 
         if ($model->update($id, $data)) {
             $updated = $model->find($id);

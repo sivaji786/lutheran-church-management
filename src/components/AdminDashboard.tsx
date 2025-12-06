@@ -61,8 +61,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const fetchAllData = async () => {
     try {
       const [membersRes, offeringsRes] = await Promise.all([
-        apiClient.getMembers({ limit: 1000 }),
-        apiClient.getOfferings({ limit: 1000 })
+        apiClient.getMembers({ limit: 10000 }),
+        apiClient.getOfferings({ limit: 10000 })
       ]);
       if (membersRes.success) setAllMembers(membersRes.data.members || []);
       if (offeringsRes.success) setAllOfferings(offeringsRes.data.offerings || []);
@@ -108,22 +108,18 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   }, []);
 
   // Action Handlers
-  const handleAddMember = async (member: Member): Promise<boolean> => {
+  const handleAddMember = async (member: Member): Promise<Member | null> => {
     try {
       const response = await apiClient.createMember(member);
-      if (response.success) {
-        toast.success('Member added successfully');
+      if (response.success && response.data) {
+        toast.success(`Member added successfully! Code: ${response.data.memberCode}`);
         fetchAllData(); // Refresh lookup list
-        // Refresh table if currently viewing members (will be handled by table's internal state trigger or manual refresh?)
-        // Actually table triggers fetch on mount/update. 
-        // We might need to force refresh table. But for now, user goes back to list, which might not re-trigger fetch if filters didn't change.
-        // But we can just let it be, or trigger a re-fetch if we had access to current filters.
-        return true;
+        return response.data;
       }
-      return false;
+      return null;
     } catch (error: any) {
       toast.error(error.message || 'Failed to add member');
-      return false;
+      return null;
     }
   };
 
@@ -256,7 +252,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   // Let's fetch all tickets initially for stats.
   const [allTickets, setAllTickets] = useState<TicketType[]>([]);
   useEffect(() => {
-    apiClient.getTickets({ limit: 1000 }).then(res => {
+    apiClient.getTickets({ limit: 10000 }).then(res => {
       if (res.success) setAllTickets(res.data.tickets || []);
     });
   }, []);
@@ -673,9 +669,18 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                           allMembers={allMembers}
                           totalRecords={totalMembersRecords}
                           onImportMembers={handleImportMembers}
-                          onMemberClick={(member) => {
-                            setSelectedMember(member);
-                            setMembersView('detail');
+                          onMemberClick={async (member) => {
+                            try {
+                              const response = await apiClient.getMember(member.id!);
+                              if (response.success && response.data) {
+                                setSelectedMember(response.data);
+                                setMembersView('detail');
+                              } else {
+                                toast.error('Failed to load member details');
+                              }
+                            } catch (error) {
+                              toast.error('Failed to load member details');
+                            }
                           }}
                           initialBirthdayFilter={showBirthdayFilter}
                           onFilterChange={fetchMembers}
@@ -726,6 +731,20 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                     onBack={() => {
                       setMembersView('list');
                       setSelectedMember(null);
+                    }}
+                    onMemberClick={async (member) => {
+                      try {
+                        const response = await apiClient.getMember(member.id!);
+                        if (response.success && response.data) {
+                          setSelectedMember(response.data);
+                          // View is already 'detail', so just updating selectedMember is enough
+                          window.scrollTo(0, 0); // Scroll to top
+                        } else {
+                          toast.error('Failed to load member details');
+                        }
+                      } catch (error) {
+                        toast.error('Failed to load member details');
+                      }
                     }}
                   />
                 )}

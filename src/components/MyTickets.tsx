@@ -14,10 +14,10 @@ const getStatusColor = (status: Ticket['status']) => {
       return 'bg-amber-100 text-amber-800 border-amber-200';
     case 'In Progress':
       return 'bg-blue-100 text-blue-800 border-blue-200';
-    case 'Updated':
-      return 'bg-purple-100 text-purple-800 border-purple-200';
-    case 'Done':
+    case 'Resolved':
       return 'bg-green-100 text-green-800 border-green-200';
+    case 'Closed':
+      return 'bg-slate-100 text-slate-800 border-slate-200';
   }
 };
 
@@ -27,9 +27,9 @@ const getStatusIcon = (status: Ticket['status']) => {
       return <AlertCircle className="w-4 h-4" />;
     case 'In Progress':
       return <Clock className="w-4 h-4" />;
-    case 'Updated':
-      return <Clock className="w-4 h-4" />;
-    case 'Done':
+    case 'Resolved':
+      return <CheckCircle2 className="w-4 h-4" />;
+    case 'Closed':
       return <CheckCircle2 className="w-4 h-4" />;
   }
 };
@@ -63,7 +63,7 @@ export function MyTickets({ tickets }: MyTicketsProps) {
       <div className="text-sm text-slate-600">
         {tickets.length} ticket{tickets.length !== 1 ? 's' : ''} total
       </div>
-      
+
       {tickets.map((ticket) => (
         <Card key={ticket.id} className="border-slate-200 hover:shadow-lg transition-shadow">
           <CardContent className="pt-6">
@@ -81,7 +81,7 @@ export function MyTickets({ tickets }: MyTicketsProps) {
                   </div>
                   <h3 className="text-slate-900">{ticket.subject}</h3>
                 </div>
-                
+
                 <div className="flex items-start gap-2">
                   <Badge className={`${getStatusColor(ticket.status)} flex items-center gap-1`}>
                     {getStatusIcon(ticket.status)}

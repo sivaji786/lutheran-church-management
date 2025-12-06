@@ -41,6 +41,9 @@ export type Member = {
   memberCode: string;
   registrationDate: string;
   memberStatus: 'confirmed' | 'unconfirmed' | 'suspended';
+  memberSerialNum?: number;
+  memberOrder?: number;
+  familyMembers?: Member[];
 };
 
 export type Offering = {
@@ -62,7 +65,7 @@ export type Ticket = {
   category: 'Profile Update' | 'Suggestion' | 'Request' | 'Other';
   subject: string;
   description: string;
-  status: 'Open' | 'In Progress' | 'Updated' | 'Done';
+  status: 'Open' | 'In Progress' | 'Resolved' | 'Closed';
   priority?: 'low' | 'medium' | 'high';
   createdDate: string;
   updatedDate: string;
@@ -302,11 +305,21 @@ function App() {
     }
   };
 
-  const changeMemberPassword = (memberCode: string, currentPassword: string, newPassword: string) => {
-    // This would need a member-specific API endpoint, likely /auth/change-password
-    // For now, we'll keep it as is or add a TODO
-    console.log(`Password changed for member ${memberCode}`);
-    toast.info('Password change feature coming soon');
+  const changeMemberPassword = async (memberCode: string, currentPassword: string, newPassword: string) => {
+    try {
+      const response = await apiClient.changePassword(memberCode, currentPassword, newPassword);
+      if (response.success) {
+        toast.success('Password changed successfully');
+        return true;
+      } else {
+        toast.error(response.message || 'Failed to change password');
+        return false;
+      }
+    } catch (error) {
+      console.error('Error changing password:', error);
+      toast.error('Failed to change password');
+      return false;
+    }
   };
 
   const navigateTo = (page: Page) => {

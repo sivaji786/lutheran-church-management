@@ -161,6 +161,17 @@ class ApiClient {
         return response;
     }
 
+    async changePassword(
+        memberCode: string,
+        currentPassword: string,
+        newPassword: string
+    ): Promise<ApiResponse<any>> {
+        return this.request('/auth/change-password', {
+            method: 'POST',
+            body: JSON.stringify({ memberCode, currentPassword, newPassword }),
+        });
+    }
+
     logout() {
         this.clearToken();
     }
@@ -175,6 +186,8 @@ class ApiClient {
         confirmationStatus?: string;
         maritalStatus?: string;
         residentialStatus?: string;
+        occupation?: string;
+        ward?: string;
         birthday?: boolean;
         sortBy?: string;
         sortOrder?: string;

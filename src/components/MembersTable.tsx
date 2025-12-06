@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { storage } from '../utils/localStorage';
-import { User, Search, Download, Upload, ChevronLeft, ChevronRight, FileDown, FileUp, Filter, X } from 'lucide-react';
+import { User, Search, Download, Upload, ChevronLeft, ChevronRight, FileDown, FileUp, Filter, X, ArrowUpDown, ArrowUp, ArrowDown, Settings2, Eye, EyeOff } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuItem } from './ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
@@ -18,7 +19,11 @@ export type MemberFilters = {
   confirmationStatus: string;
   maritalStatus: string;
   residentialStatus: string;
+  occupation: string;
+  ward: string;
   birthday: boolean;
+  sortBy: string;
+  sortOrder: string;
 };
 
 type MembersTableProps = {
@@ -38,8 +43,27 @@ export function MembersTable({ members, allMembers, totalRecords, onImportMember
   const [confirmationFilter, setConfirmationFilter] = useState<string>('all');
   const [maritalFilter, setMaritalFilter] = useState<string>('all');
   const [residentialFilter, setResidentialFilter] = useState<string>('all');
+  const [occupationFilter, setOccupationFilter] = useState<string>('all');
+  const [wardFilter, setWardFilter] = useState<string>('all');
   const [birthdayFilter, setBirthdayFilter] = useState<boolean>(initialBirthdayFilter || false);
   const [showFilters, setShowFilters] = useState(initialBirthdayFilter || false);
+  const [sortColumn, setSortColumn] = useState<string>('created_at');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>({
+    serialNo: true,
+    memberCode: true,
+    fullName: true,
+    occupation: true,
+    dob: true,
+    baptism: true,
+    confirmation: true,
+    marital: true,
+    residential: true,
+    aadhar: true,
+    mobile: true,
+    ward: true,
+    remarks: true,
+  });
   const itemsPerPage = 10;
 
   // Load persisted state from localStorage on mount
@@ -52,8 +76,15 @@ export function MembersTable({ members, allMembers, totalRecords, onImportMember
       setConfirmationFilter(saved.confirmationFilter ?? 'all');
       setMaritalFilter(saved.maritalFilter ?? 'all');
       setResidentialFilter(saved.residentialFilter ?? 'all');
+      setOccupationFilter(saved.occupationFilter ?? 'all');
+      setWardFilter(saved.wardFilter ?? 'all');
       setBirthdayFilter(saved.birthdayFilter ?? false);
       setShowFilters(saved.showFilters ?? false);
+      setSortColumn(saved.sortColumn ?? 'created_at');
+      setSortDirection(saved.sortDirection ?? 'desc');
+      if (saved.visibleColumns) {
+        setVisibleColumns(saved.visibleColumns);
+      }
     }
   }, []);
 
@@ -66,8 +97,13 @@ export function MembersTable({ members, allMembers, totalRecords, onImportMember
       confirmationFilter,
       maritalFilter,
       residentialFilter,
+      occupationFilter,
+      wardFilter,
       birthdayFilter,
       showFilters,
+      sortColumn,
+      sortDirection,
+      visibleColumns,
     });
 
     onFilterChange({
@@ -78,13 +114,17 @@ export function MembersTable({ members, allMembers, totalRecords, onImportMember
       confirmationStatus: confirmationFilter,
       maritalStatus: maritalFilter,
       residentialStatus: residentialFilter,
+      occupation: occupationFilter,
+      ward: wardFilter,
       birthday: birthdayFilter,
+      sortBy: sortColumn,
+      sortOrder: sortDirection,
     });
-  }, [searchTerm, currentPage, baptismFilter, confirmationFilter, maritalFilter, residentialFilter, birthdayFilter, showFilters]);
+  }, [searchTerm, currentPage, baptismFilter, confirmationFilter, maritalFilter, residentialFilter, occupationFilter, wardFilter, birthdayFilter, showFilters, sortColumn, sortDirection]);
 
   // Check if any filters are active
   const hasActiveFilters = baptismFilter !== 'all' || confirmationFilter !== 'all' ||
-    maritalFilter !== 'all' || residentialFilter !== 'all' || birthdayFilter || searchTerm !== '';
+    maritalFilter !== 'all' || residentialFilter !== 'all' || occupationFilter !== 'all' || wardFilter !== 'all' || birthdayFilter || searchTerm !== '';
 
   // Clear all filters
   const clearFilters = () => {
@@ -92,9 +132,13 @@ export function MembersTable({ members, allMembers, totalRecords, onImportMember
     setConfirmationFilter('all');
     setMaritalFilter('all');
     setResidentialFilter('all');
+    setOccupationFilter('all');
+    setWardFilter('all');
     setBirthdayFilter(false);
     setSearchTerm('');
     setCurrentPage(1);
+    setSortColumn('created_at');
+    setSortDirection('desc');
   };
 
   // Calculate pagination
@@ -119,7 +163,11 @@ export function MembersTable({ members, allMembers, totalRecords, onImportMember
           member.name.toLowerCase().includes(searchLower) ||
           member.memberCode.toLowerCase().includes(searchLower) ||
           member.mobile.includes(searchTerm) ||
+          member.name.toLowerCase().includes(searchLower) ||
+          member.memberCode.toLowerCase().includes(searchLower) ||
+          member.mobile.includes(searchTerm) ||
           member.occupation.toLowerCase().includes(searchLower) ||
+          (member.memberSerialNum && member.memberSerialNum.toString().includes(searchTerm)) ||
           member.aadharNumber.includes(searchTerm);
 
         if (!matchesSearch) return false;
@@ -149,6 +197,16 @@ export function MembersTable({ members, allMembers, totalRecords, onImportMember
         if (member.residentialStatus !== isResident) return false;
       }
 
+      // Occupation Filter
+      if (occupationFilter !== 'all') {
+        if (member.occupation !== occupationFilter) return false;
+      }
+
+      // Ward Filter
+      if (wardFilter !== 'all') {
+        if (member.ward !== wardFilter) return false;
+      }
+
       // Birthday Filter
       if (birthdayFilter) {
         const today = new Date();
@@ -170,6 +228,7 @@ export function MembersTable({ members, allMembers, totalRecords, onImportMember
     }
 
     const headers = [
+      'Serial No',
       'Member Code',
       'Full Name',
       'Occupation',
@@ -180,10 +239,16 @@ export function MembersTable({ members, allMembers, totalRecords, onImportMember
       'Residential Status',
       'Aadhar Number',
       'Mobile Number',
+      'Address',
+      'Area',
+      'Ward',
+      'Registration Date',
+      'Member Status',
       'Remarks'
     ];
 
     const csvData = membersToExport.map(member => [
+      member.memberSerialNum ? member.memberSerialNum.toString().padStart(4, '0') : '',
       member.memberCode,
       member.name,
       member.occupation,
@@ -194,6 +259,11 @@ export function MembersTable({ members, allMembers, totalRecords, onImportMember
       member.residentialStatus ? 'Resident' : 'Non-Resident',
       member.aadharNumber,
       member.mobile,
+      member.address,
+      member.area,
+      member.ward,
+      member.registrationDate,
+      member.memberStatus,
       member.remarks
     ]);
 
@@ -228,6 +298,7 @@ export function MembersTable({ members, allMembers, totalRecords, onImportMember
     import('xlsx').then((XLSX) => {
       // Prepare data for Excel
       const excelData = membersToExport.map(member => ({
+        'Serial No': member.memberSerialNum ? member.memberSerialNum.toString().padStart(4, '0') : '',
         'Member Code': member.memberCode,
         'Full Name': member.name,
         'Occupation': member.occupation,
@@ -238,6 +309,11 @@ export function MembersTable({ members, allMembers, totalRecords, onImportMember
         'Residential Status': member.residentialStatus ? 'Resident' : 'Non-Resident',
         'Aadhar Number': member.aadharNumber,
         'Mobile Number': member.mobile,
+        'Address': member.address,
+        'Area': member.area,
+        'Ward': member.ward,
+        'Registration Date': member.registrationDate,
+        'Member Status': member.memberStatus,
         'Remarks': member.remarks
       }));
 
@@ -246,6 +322,7 @@ export function MembersTable({ members, allMembers, totalRecords, onImportMember
 
       // Set column widths
       worksheet['!cols'] = [
+        { wch: 10 }, // Serial No
         { wch: 15 }, // Member Code
         { wch: 25 }, // Full Name
         { wch: 20 }, // Occupation
@@ -256,6 +333,11 @@ export function MembersTable({ members, allMembers, totalRecords, onImportMember
         { wch: 18 }, // Residential Status
         { wch: 18 }, // Aadhar Number
         { wch: 15 }, // Mobile Number
+        { wch: 30 }, // Address
+        { wch: 15 }, // Area
+        { wch: 10 }, // Ward
+        { wch: 15 }, // Registration Date
+        { wch: 15 }, // Member Status
         { wch: 30 }  // Remarks
       ];
 
@@ -333,6 +415,36 @@ export function MembersTable({ members, allMembers, totalRecords, onImportMember
     event.target.value = '';
   };
 
+  const handleSort = (column: string) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
+  const renderSortIcon = (column: string) => {
+    if (sortColumn !== column) return <ArrowUpDown className="w-4 h-4 ml-1 text-slate-400 opacity-0 group-hover:opacity-50" />;
+    return sortDirection === 'asc'
+      ? <ArrowUp className="w-4 h-4 ml-1 text-blue-600" />
+      : <ArrowDown className="w-4 h-4 ml-1 text-blue-600" />;
+  };
+
+  // Get unique occupations for filter
+  const uniqueOccupations = React.useMemo(() => {
+    const source = allMembers || members;
+    const occupations = new Set(source.map(m => m.occupation).filter(Boolean));
+    return Array.from(occupations).sort();
+  }, [allMembers, members]);
+
+  // Get unique wards for filter
+  const uniqueWards = React.useMemo(() => {
+    const source = allMembers || members;
+    const wards = new Set(source.map(m => m.ward).filter(Boolean));
+    return Array.from(wards).sort();
+  }, [allMembers, members]);
+
   return (
     <div className="space-y-6">
       {/* Header Section */}
@@ -345,8 +457,8 @@ export function MembersTable({ members, allMembers, totalRecords, onImportMember
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {/* Import Button */}
-          {onImportMembers && (
+          {/* Import Button - Hidden for now */}
+          {/* {onImportMembers && (
             <div>
               <input
                 type="file"
@@ -367,7 +479,7 @@ export function MembersTable({ members, allMembers, totalRecords, onImportMember
                 </Button>
               </label>
             </div>
-          )}
+          )} */}
 
           {/* Export Buttons */}
           <Button
@@ -396,7 +508,7 @@ export function MembersTable({ members, allMembers, totalRecords, onImportMember
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
           <Input
             type="text"
-            placeholder="Search by name, member code, mobile, occupation, or Aadhar..."
+            placeholder="Search by serial no, name, code, mobile, occupation..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
@@ -411,10 +523,155 @@ export function MembersTable({ members, allMembers, totalRecords, onImportMember
           Filters
           {hasActiveFilters && (
             <Badge className="ml-2 bg-blue-600 text-white">
-              {[baptismFilter, confirmationFilter, maritalFilter, residentialFilter].filter(f => f !== 'all').length + (birthdayFilter ? 1 : 0)}
+              {[baptismFilter, confirmationFilter, maritalFilter, residentialFilter, occupationFilter, wardFilter].filter(f => f !== 'all').length + (birthdayFilter ? 1 : 0)}
             </Badge>
           )}
         </Button>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" className="ml-auto">
+              <Settings2 className="w-4 h-4 mr-2" />
+              Columns
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel>Toggle Columns</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <div className="max-h-[300px] overflow-y-auto">
+              <DropdownMenuItem
+                className="flex justify-between items-center cursor-pointer"
+                onSelect={(e) => {
+                  e.preventDefault();
+                  setVisibleColumns(prev => ({ ...prev, serialNo: !prev.serialNo }));
+                }}
+              >
+                <span>Serial No</span>
+                {visibleColumns.serialNo ? <Eye className="w-4 h-4 text-blue-600" /> : <EyeOff className="w-4 h-4 text-slate-400" />}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="flex justify-between items-center cursor-pointer"
+                onSelect={(e) => {
+                  e.preventDefault();
+                  setVisibleColumns(prev => ({ ...prev, memberCode: !prev.memberCode }));
+                }}
+              >
+                <span>Member Code</span>
+                {visibleColumns.memberCode ? <Eye className="w-4 h-4 text-blue-600" /> : <EyeOff className="w-4 h-4 text-slate-400" />}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="flex justify-between items-center cursor-pointer"
+                onSelect={(e) => {
+                  e.preventDefault();
+                  setVisibleColumns(prev => ({ ...prev, fullName: !prev.fullName }));
+                }}
+              >
+                <span>Full Name</span>
+                {visibleColumns.fullName ? <Eye className="w-4 h-4 text-blue-600" /> : <EyeOff className="w-4 h-4 text-slate-400" />}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="flex justify-between items-center cursor-pointer"
+                onSelect={(e) => {
+                  e.preventDefault();
+                  setVisibleColumns(prev => ({ ...prev, occupation: !prev.occupation }));
+                }}
+              >
+                <span>Occupation</span>
+                {visibleColumns.occupation ? <Eye className="w-4 h-4 text-blue-600" /> : <EyeOff className="w-4 h-4 text-slate-400" />}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="flex justify-between items-center cursor-pointer"
+                onSelect={(e) => {
+                  e.preventDefault();
+                  setVisibleColumns(prev => ({ ...prev, dob: !prev.dob }));
+                }}
+              >
+                <span>Date of Birth</span>
+                {visibleColumns.dob ? <Eye className="w-4 h-4 text-blue-600" /> : <EyeOff className="w-4 h-4 text-slate-400" />}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="flex justify-between items-center cursor-pointer"
+                onSelect={(e) => {
+                  e.preventDefault();
+                  setVisibleColumns(prev => ({ ...prev, baptism: !prev.baptism }));
+                }}
+              >
+                <span>Baptism</span>
+                {visibleColumns.baptism ? <Eye className="w-4 h-4 text-blue-600" /> : <EyeOff className="w-4 h-4 text-slate-400" />}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="flex justify-between items-center cursor-pointer"
+                onSelect={(e) => {
+                  e.preventDefault();
+                  setVisibleColumns(prev => ({ ...prev, confirmation: !prev.confirmation }));
+                }}
+              >
+                <span>Confirmation</span>
+                {visibleColumns.confirmation ? <Eye className="w-4 h-4 text-blue-600" /> : <EyeOff className="w-4 h-4 text-slate-400" />}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="flex justify-between items-center cursor-pointer"
+                onSelect={(e) => {
+                  e.preventDefault();
+                  setVisibleColumns(prev => ({ ...prev, marital: !prev.marital }));
+                }}
+              >
+                <span>Marital Status</span>
+                {visibleColumns.marital ? <Eye className="w-4 h-4 text-blue-600" /> : <EyeOff className="w-4 h-4 text-slate-400" />}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="flex justify-between items-center cursor-pointer"
+                onSelect={(e) => {
+                  e.preventDefault();
+                  setVisibleColumns(prev => ({ ...prev, residential: !prev.residential }));
+                }}
+              >
+                <span>Residential Status</span>
+                {visibleColumns.residential ? <Eye className="w-4 h-4 text-blue-600" /> : <EyeOff className="w-4 h-4 text-slate-400" />}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="flex justify-between items-center cursor-pointer"
+                onSelect={(e) => {
+                  e.preventDefault();
+                  setVisibleColumns(prev => ({ ...prev, aadhar: !prev.aadhar }));
+                }}
+              >
+                <span>Aadhar Number</span>
+                {visibleColumns.aadhar ? <Eye className="w-4 h-4 text-blue-600" /> : <EyeOff className="w-4 h-4 text-slate-400" />}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="flex justify-between items-center cursor-pointer"
+                onSelect={(e) => {
+                  e.preventDefault();
+                  setVisibleColumns(prev => ({ ...prev, ward: !prev.ward }));
+                }}
+              >
+                <span>Ward</span>
+                {visibleColumns.ward ? <Eye className="w-4 h-4 text-blue-600" /> : <EyeOff className="w-4 h-4 text-slate-400" />}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="flex justify-between items-center cursor-pointer"
+                onSelect={(e) => {
+                  e.preventDefault();
+                  setVisibleColumns(prev => ({ ...prev, mobile: !prev.mobile }));
+                }}
+              >
+                <span>Mobile</span>
+                {visibleColumns.mobile ? <Eye className="w-4 h-4 text-blue-600" /> : <EyeOff className="w-4 h-4 text-slate-400" />}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="flex justify-between items-center cursor-pointer"
+                onSelect={(e) => {
+                  e.preventDefault();
+                  setVisibleColumns(prev => ({ ...prev, remarks: !prev.remarks }));
+                }}
+              >
+                <span>Remarks</span>
+                {visibleColumns.remarks ? <Eye className="w-4 h-4 text-blue-600" /> : <EyeOff className="w-4 h-4 text-slate-400" />}
+              </DropdownMenuItem>
+            </div>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* Filters */}
@@ -478,6 +735,38 @@ export function MembersTable({ members, allMembers, totalRecords, onImportMember
             </div>
 
             <div className="space-y-1">
+              <Label className="text-xs text-slate-600">Occupation</Label>
+              <Select value={occupationFilter} onValueChange={setOccupationFilter}>
+                <SelectTrigger className="w-40 bg-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="no_data">NoData</SelectItem>
+                  {uniqueOccupations.map(occupation => (
+                    <SelectItem key={occupation} value={occupation}>{occupation}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs text-slate-600">Ward</Label>
+              <Select value={wardFilter} onValueChange={setWardFilter}>
+                <SelectTrigger className="w-40 bg-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="no_data">NoData</SelectItem>
+                  {uniqueWards.map(ward => (
+                    <SelectItem key={ward} value={ward}>{ward}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
               <Label className="text-xs text-slate-600">Birthday Today</Label>
               <Select value={birthdayFilter ? 'yes' : 'no'} onValueChange={(value: string) => setBirthdayFilter(value === 'yes')}>
                 <SelectTrigger className="w-40 bg-white">
@@ -513,17 +802,139 @@ export function MembersTable({ members, allMembers, totalRecords, onImportMember
           <Table>
             <TableHeader>
               <TableRow className="bg-slate-50">
-                <TableHead className="w-[100px]">Member Code</TableHead>
-                <TableHead>Full Name</TableHead>
-                <TableHead>Occupation</TableHead>
-                <TableHead>Date of Birth</TableHead>
-                <TableHead className="text-center">Baptism</TableHead>
-                <TableHead className="text-center">Confirmation</TableHead>
-                <TableHead className="text-center">Marital</TableHead>
-                <TableHead className="text-center">Residential</TableHead>
-                <TableHead>Aadhar Number</TableHead>
-                <TableHead>Mobile</TableHead>
-                <TableHead>Remarks</TableHead>
+                {visibleColumns.serialNo && (
+                  <TableHead
+                    className="w-[80px] cursor-pointer hover:bg-slate-100 group transition-colors"
+                    onClick={() => handleSort('member_serial_num')}
+                  >
+                    <div className="flex items-center">
+                      Serial No
+                      {renderSortIcon('member_serial_num')}
+                    </div>
+                  </TableHead>
+                )}
+                {visibleColumns.memberCode && (
+                  <TableHead
+                    className="w-[100px] cursor-pointer hover:bg-slate-100 group transition-colors"
+                    onClick={() => handleSort('member_code')}
+                  >
+                    <div className="flex items-center">
+                      Member Code
+                      {renderSortIcon('member_code')}
+                    </div>
+                  </TableHead>
+                )}
+                {visibleColumns.fullName && (
+                  <TableHead
+                    className="cursor-pointer hover:bg-slate-100 group transition-colors"
+                    onClick={() => handleSort('name')}
+                  >
+                    <div className="flex items-center">
+                      Full Name
+                      {renderSortIcon('name')}
+                    </div>
+                  </TableHead>
+                )}
+                {visibleColumns.occupation && (
+                  <TableHead
+                    className="cursor-pointer hover:bg-slate-100 group transition-colors"
+                    onClick={() => handleSort('occupation')}
+                  >
+                    <div className="flex items-center">
+                      Occupation
+                      {renderSortIcon('occupation')}
+                    </div>
+                  </TableHead>
+                )}
+                {visibleColumns.dob && (
+                  <TableHead
+                    className="cursor-pointer hover:bg-slate-100 group transition-colors"
+                    onClick={() => handleSort('date_of_birth')}
+                  >
+                    <div className="flex items-center">
+                      Date of Birth
+                      {renderSortIcon('date_of_birth')}
+                    </div>
+                  </TableHead>
+                )}
+                {visibleColumns.baptism && (
+                  <TableHead
+                    className="text-center cursor-pointer hover:bg-slate-100 group transition-colors"
+                    onClick={() => handleSort('baptism_status')}
+                  >
+                    <div className="flex items-center justify-center">
+                      Baptism
+                      {renderSortIcon('baptism_status')}
+                    </div>
+                  </TableHead>
+                )}
+                {visibleColumns.confirmation && (
+                  <TableHead
+                    className="text-center cursor-pointer hover:bg-slate-100 group transition-colors"
+                    onClick={() => handleSort('confirmation_status')}
+                  >
+                    <div className="flex items-center justify-center">
+                      Confirmation
+                      {renderSortIcon('confirmation_status')}
+                    </div>
+                  </TableHead>
+                )}
+                {visibleColumns.marital && (
+                  <TableHead
+                    className="text-center cursor-pointer hover:bg-slate-100 group transition-colors"
+                    onClick={() => handleSort('marital_status')}
+                  >
+                    <div className="flex items-center justify-center">
+                      Marital
+                      {renderSortIcon('marital_status')}
+                    </div>
+                  </TableHead>
+                )}
+                {visibleColumns.residential && (
+                  <TableHead
+                    className="text-center cursor-pointer hover:bg-slate-100 group transition-colors"
+                    onClick={() => handleSort('residential_status')}
+                  >
+                    <div className="flex items-center justify-center">
+                      Residential
+                      {renderSortIcon('residential_status')}
+                    </div>
+                  </TableHead>
+                )}
+                {visibleColumns.aadhar && (
+                  <TableHead
+                    className="cursor-pointer hover:bg-slate-100 group transition-colors"
+                    onClick={() => handleSort('aadhar_number')}
+                  >
+                    <div className="flex items-center">
+                      Aadhar Number
+                      {renderSortIcon('aadhar_number')}
+                    </div>
+                  </TableHead>
+                )}
+                {visibleColumns.ward && (
+                  <TableHead
+                    className="cursor-pointer hover:bg-slate-100 group transition-colors"
+                    onClick={() => handleSort('ward')}
+                  >
+                    <div className="flex items-center">
+                      Ward
+                      {renderSortIcon('ward')}
+                    </div>
+                  </TableHead>
+                )}
+                {visibleColumns.mobile && (
+                  <TableHead
+                    className="cursor-pointer hover:bg-slate-100 group transition-colors"
+                    onClick={() => handleSort('mobile')}
+                  >
+                    <div className="flex items-center">
+                      Mobile
+                      {renderSortIcon('mobile')}
+                    </div>
+                  </TableHead>
+                )}
+                {visibleColumns.remarks && <TableHead>Remarks</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -534,44 +945,64 @@ export function MembersTable({ members, allMembers, totalRecords, onImportMember
                     className="hover:bg-blue-50 cursor-pointer transition-colors"
                     onClick={() => onMemberClick?.(member)}
                   >
-                    <TableCell>
-                      <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                        {member.memberCode}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="font-medium">{member.name}</TableCell>
-                    <TableCell>{member.occupation}</TableCell>
-                    <TableCell>{member.dateOfBirth && !isNaN(new Date(member.dateOfBirth).getTime()) ? new Date(member.dateOfBirth).toLocaleDateString('en-IN') : '-'}</TableCell>
-                    <TableCell className="text-center">
-                      <Badge variant={member.baptismStatus ? "default" : "secondary"} className={member.baptismStatus ? "bg-green-100 text-green-800" : ""}>
-                        {member.baptismStatus ? 'Yes' : 'No'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Badge variant={member.confirmationStatus ? "default" : "secondary"} className={member.confirmationStatus ? "bg-blue-100 text-blue-800" : ""}>
-                        {member.confirmationStatus ? 'Confirmed' : 'Not Confirmed'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Badge variant="outline" className={member.maritalStatus ? "bg-pink-50 text-pink-700 border-pink-200" : "bg-slate-50 text-slate-700 border-slate-200"}>
-                        {member.maritalStatus ? 'Married' : 'Unmarried'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Badge variant="outline" className={member.residentialStatus ? "bg-purple-50 text-purple-700 border-purple-200" : "bg-amber-50 text-amber-700 border-amber-200"}>
-                        {member.residentialStatus ? 'Resident' : 'Non-Resident'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="font-mono text-sm">{member.aadharNumber}</TableCell>
-                    <TableCell>{member.mobile}</TableCell>
-                    <TableCell className="max-w-[200px] truncate text-sm text-slate-600">
-                      {member.remarks || '-'}
-                    </TableCell>
+                    {visibleColumns.serialNo && (
+                      <TableCell className="font-medium text-slate-600">
+                        {member.memberSerialNum ? member.memberSerialNum.toString().padStart(4, '0') : '-'}
+                      </TableCell>
+                    )}
+                    {visibleColumns.memberCode && (
+                      <TableCell>
+                        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                          {member.memberCode}
+                        </Badge>
+                      </TableCell>
+                    )}
+                    {visibleColumns.fullName && <TableCell className="font-medium">{member.name}</TableCell>}
+                    {visibleColumns.occupation && <TableCell>{member.occupation || <span className="text-slate-400 italic">NoData</span>}</TableCell>}
+                    {visibleColumns.dob && (
+                      <TableCell>{member.dateOfBirth && !isNaN(new Date(member.dateOfBirth).getTime()) ? new Date(member.dateOfBirth).toLocaleDateString('en-IN') : '-'}</TableCell>
+                    )}
+                    {visibleColumns.baptism && (
+                      <TableCell className="text-center">
+                        <Badge variant={member.baptismStatus ? "default" : "secondary"} className={member.baptismStatus ? "bg-green-100 text-green-800" : ""}>
+                          {member.baptismStatus ? 'Yes' : 'No'}
+                        </Badge>
+                      </TableCell>
+                    )}
+                    {visibleColumns.confirmation && (
+                      <TableCell className="text-center">
+                        <Badge variant={member.confirmationStatus ? "default" : "secondary"} className={member.confirmationStatus ? "bg-blue-100 text-blue-800" : ""}>
+                          {member.confirmationStatus ? 'Confirmed' : 'Not Confirmed'}
+                        </Badge>
+                      </TableCell>
+                    )}
+                    {visibleColumns.marital && (
+                      <TableCell className="text-center">
+                        <Badge variant="outline" className={member.maritalStatus ? "bg-pink-50 text-pink-700 border-pink-200" : "bg-slate-50 text-slate-700 border-slate-200"}>
+                          {member.maritalStatus ? 'Married' : 'Unmarried'}
+                        </Badge>
+                      </TableCell>
+                    )}
+                    {visibleColumns.residential && (
+                      <TableCell className="text-center">
+                        <Badge variant="outline" className={member.residentialStatus ? "bg-purple-50 text-purple-700 border-purple-200" : "bg-amber-50 text-amber-700 border-amber-200"}>
+                          {member.residentialStatus ? 'Resident' : 'Non-Resident'}
+                        </Badge>
+                      </TableCell>
+                    )}
+                    {visibleColumns.aadhar && <TableCell className="font-mono text-sm">{member.aadharNumber || <span className="text-slate-400 italic">NoData</span>}</TableCell>}
+                    {visibleColumns.ward && <TableCell>{member.ward || <span className="text-slate-400 italic">NoData</span>}</TableCell>}
+                    {visibleColumns.mobile && <TableCell>{member.mobile || <span className="text-slate-400 italic">NoData</span>}</TableCell>}
+                    {visibleColumns.remarks && (
+                      <TableCell className="max-w-[200px] truncate text-sm text-slate-600">
+                        {member.remarks || <span className="text-slate-400 italic">NoData</span>}
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={11} className="text-center py-8 text-slate-500">
+                  <TableCell colSpan={Object.values(visibleColumns).filter(Boolean).length} className="text-center py-8 text-slate-500">
                     {searchTerm ? 'No members found matching your search' : 'No members registered yet'}
                   </TableCell>
                 </TableRow>

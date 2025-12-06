@@ -11,7 +11,7 @@ type ChangePasswordDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   memberName: string;
-  onChangePassword: (currentPassword: string, newPassword: string) => void;
+  onChangePassword: (currentPassword: string, newPassword: string) => Promise<boolean | void>;
 };
 
 export function ChangePasswordDialog({
@@ -54,35 +54,42 @@ export function ChangePasswordDialog({
     return validationErrors;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const validationErrors = validatePasswords();
-    
+
     if (validationErrors.length > 0) {
       setErrors(validationErrors);
       return;
     }
 
     setErrors([]);
-    
-    // Mock validation - in real app, this would verify with backend
-    // For demo, accept "member123" as current password
-    if (currentPassword !== 'member123') {
-      toast.error('Current password is incorrect');
-      return;
-    }
 
-    onChangePassword(currentPassword, newPassword);
-    
+    // Call parent handler which calls API
+    // We need to handle the promise here to show success/error
+    // But the prop definition is void. Let's cast it or assume it returns promise if we updated App.tsx
+    // Actually, we should update the prop type in this file too.
+
+    // For now, let's assume the parent handles the toast.
+    // But wait, the previous code had toast.success here.
+    // Let's update the prop type to return Promise<boolean> or similar.
+    // Since I can't easily change the prop type across files in one go without errors if I don't do it carefully,
+    // I will assume the parent (App.tsx) returns a promise (which I just updated it to do, but the type in App.tsx inferred it).
+    // I need to update the interface here first.
+
+    await onChangePassword(currentPassword, newPassword);
+
+    // We'll rely on the parent to show success/error toast for now, 
+    // OR we can update the interface. Let's update the interface in a separate step or just cast it here.
+    // Actually, better to update the interface.
+
     // Reset form
     setCurrentPassword('');
     setNewPassword('');
     setConfirmPassword('');
     setErrors([]);
     onOpenChange(false);
-    
-    toast.success('Password changed successfully! Please login again with your new password.');
   };
 
   const handleCancel = () => {

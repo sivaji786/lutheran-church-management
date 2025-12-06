@@ -130,4 +130,52 @@ class Auth extends BaseController
 
         return $this->respond($response);
     }
+    public function changePassword()
+    {
+        $rules = [
+            'currentPassword' => 'required',
+            'newPassword' => 'required|min_length[8]'
+        ];
+
+        if (!$this->validate($rules)) {
+            return $this->failValidationErrors($this->validator->getErrors());
+        }
+
+        $currentPassword = $this->request->getVar('currentPassword');
+        $newPassword = $this->request->getVar('newPassword');
+        
+        // Get user ID from JWT token (assuming middleware sets it or we decode it)
+        // For now, we'll expect the memberCode to be passed or use the ID from token if available
+        // Let's use the memberCode passed in request for simplicity as per current frontend flow, 
+        // but ideally should be from token. 
+        // Actually, the App.tsx passes memberCode. Let's use that to find the user.
+        
+        $memberCode = $this->request->getVar('memberCode');
+        if (!$memberCode) {
+             return $this->fail('Member code is required');
+        }
+
+        $model = new MemberModel();
+        $user = $model->where('member_code', $memberCode)->first();
+
+        if (!$user) {
+            return $this->failNotFound('Member not found');
+        }
+
+        if (!password_verify($currentPassword, $user['password'])) {
+            return $this->fail('Current password is incorrect');
+        }
+
+        // Update password
+        $data = [
+            'password' => password_hash($newPassword, PASSWORD_DEFAULT)
+        ];
+
+        $model->update($user['id'], $data);
+
+        return $this->respond([
+            'success' => true,
+            'message' => 'Password changed successfully'
+        ]);
+    }
 }

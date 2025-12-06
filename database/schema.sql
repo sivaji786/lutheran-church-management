@@ -212,6 +212,10 @@ CREATE TABLE `members` (
   KEY `created_by` (`created_by`),
   KEY `idx_members_status_registration` (`member_status`,`registration_date`),
   FULLTEXT KEY `ft_member_search` (`name`,`occupation`,`address`),
+  `family_id` int DEFAULT NULL COMMENT 'From CSV MemberSerialNum',
+  `member_serial_num` int DEFAULT NULL COMMENT 'From CSV MemberSerialNum (Explicit)',
+  `member_order` int DEFAULT NULL COMMENT 'From CSV FamilySerialNum',
+  `head_of_family` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'From CSV Address1',
   CONSTRAINT `members_ibfk_1` FOREIGN KEY (`created_by`) REFERENCES `admin_users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Church members database';
 

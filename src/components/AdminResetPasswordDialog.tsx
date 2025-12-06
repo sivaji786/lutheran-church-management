@@ -49,27 +49,27 @@ export function AdminResetPasswordDialog({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!member) return;
 
     const validationErrors = validatePasswords();
-    
+
     if (validationErrors.length > 0) {
       setErrors(validationErrors);
       return;
     }
 
     setErrors([]);
-    
+
     onResetPassword(member.id, newPassword);
-    
+
     // Reset form
     setNewPassword('');
     setConfirmPassword('');
     setNotifyMember(true);
     setErrors([]);
     onOpenChange(false);
-    
+
     toast.success(
       `Password reset successfully for ${member.name}. ${notifyMember ? 'Member has been notified.' : ''}`
     );
@@ -84,10 +84,10 @@ export function AdminResetPasswordDialog({
   };
 
   const handleAutoFill = () => {
-    const generatedPassword = 'NewPass' + Math.floor(Math.random() * 10000);
-    setNewPassword(generatedPassword);
-    setConfirmPassword(generatedPassword);
-    toast.info(`Generated password: ${generatedPassword}`, {
+    const defaultPassword = 'Member@123';
+    setNewPassword(defaultPassword);
+    setConfirmPassword(defaultPassword);
+    toast.info(`Password set to default: ${defaultPassword}`, {
       description: 'Make sure to share this with the member securely.',
       duration: 5000,
     });
@@ -130,7 +130,7 @@ export function AdminResetPasswordDialog({
             <Alert className="bg-amber-50 border-amber-200">
               <AlertCircle className="h-4 w-4 text-amber-600" />
               <AlertDescription className="text-amber-900">
-                <strong>Admin Action:</strong> You are resetting the password for this member. 
+                <strong>Admin Action:</strong> You are resetting the password for this member.
                 They will need to use the new password to login.
               </AlertDescription>
             </Alert>
@@ -153,7 +153,7 @@ export function AdminResetPasswordDialog({
                   onClick={handleAutoFill}
                   className="h-auto p-0 text-xs"
                 >
-                  Generate Password
+                  Use Default (Member@123)
                 </Button>
               </div>
               <div className="relative">
@@ -199,8 +199,8 @@ export function AdminResetPasswordDialog({
 
             {/* Notify Member Checkbox */}
             <div className="flex items-start space-x-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
-              <Checkbox 
-                id="notifyMember" 
+              <Checkbox
+                id="notifyMember"
                 checked={notifyMember}
                 onCheckedChange={(checked) => setNotifyMember(checked as boolean)}
               />

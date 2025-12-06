@@ -45,3 +45,4 @@ Thumbs.db
 # Package manager locks (optional - uncomment to ignore)
 # package-lock.json
 # backend/composer.lock
+.~lock*
