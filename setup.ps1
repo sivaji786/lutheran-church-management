@@ -1,4 +1,5 @@
 # Lutheran Church Management System - PowerShell Setup Script
+Set-Location $PSScriptRoot
 # This script will guide you through the complete installation process
 
 # Requires PowerShell 5.0 or higher

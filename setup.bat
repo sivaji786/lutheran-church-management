@@ -1,4 +1,5 @@
 @echo off
+cd /d %~dp0
 REM Lutheran Church Management System - Windows Setup Script
 REM This script will guide you through the complete installation process
 

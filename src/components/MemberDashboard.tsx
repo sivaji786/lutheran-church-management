@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { LogOut, User, DollarSign, Calendar, LayoutDashboard, Menu, X, Ticket, KeyRound, Users } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
@@ -7,8 +7,9 @@ import { Badge } from './ui/badge';
 import { TicketForm } from './TicketForm';
 import { MyTickets } from './MyTickets';
 import { Member, Offering, Ticket as TicketType } from '../App';
-const logoImage = 'https://placehold.co/100x100?text=Logo';
 import { ChangePasswordDialog } from './ChangePasswordDialog';
+
+const logoImage = 'https://placehold.co/100x100?text=Logo';
 
 type MemberDashboardProps = {
   memberCode: string;
@@ -16,7 +17,7 @@ type MemberDashboardProps = {
   offerings: Offering[];
   tickets: TicketType[];
   onAddTicket: (ticket: TicketType) => Promise<boolean>;
-  onChangePassword: (memberCode: string, currentPassword: string, newPassword: string) => void;
+  onChangePassword: (memberCode: string, currentPassword: string, newPassword: string) => Promise<boolean>;
   onLogout: () => void;
 };
 
@@ -401,7 +402,7 @@ export function MemberDashboard({
                                 )}
                               </TableCell>
                               <TableCell>
-                                {fm.headOfFamily === fm.name ? 'Head of Family' : (fm.memberOrder === 1 ? 'Head of Family' : 'Member')}
+                                {fm.memberOrder === 1 ? 'Head of Family' : 'Member'}
                               </TableCell>
                               <TableCell>{fm.mobile || '-'}</TableCell>
                               <TableCell>
@@ -503,7 +504,7 @@ export function MemberDashboard({
                 <TicketForm
                   memberCode={member.memberCode}
                   memberName={member.name}
-                  memberId={member.id}
+                  memberId={member.id!}
                   onAddTicket={async (newTicket) => await onAddTicket(newTicket)}
                 />
 

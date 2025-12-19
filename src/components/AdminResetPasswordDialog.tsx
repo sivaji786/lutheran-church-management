@@ -5,7 +5,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Alert, AlertDescription } from './ui/alert';
 import { Checkbox } from './ui/checkbox';
-import { KeyRound, Eye, EyeOff, AlertCircle, ShieldCheck } from 'lucide-react';
+import { Eye, EyeOff, AlertCircle, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { Member } from '../App';
 
@@ -61,7 +61,9 @@ export function AdminResetPasswordDialog({
 
     setErrors([]);
 
-    onResetPassword(member.id, newPassword);
+    if (member.id) {
+      onResetPassword(member.id, newPassword);
+    }
 
     // Reset form
     setNewPassword('');
@@ -202,7 +204,7 @@ export function AdminResetPasswordDialog({
               <Checkbox
                 id="notifyMember"
                 checked={notifyMember}
-                onCheckedChange={(checked) => setNotifyMember(checked as boolean)}
+                onCheckedChange={(checked: boolean | 'indeterminate') => setNotifyMember(checked === true)}
               />
               <div className="space-y-1">
                 <label

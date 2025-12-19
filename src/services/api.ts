@@ -1,5 +1,5 @@
 // API Configuration
-const API_BASE_URL = 'http://localhost:8080/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 // Types
 export interface LoginResponse {
@@ -22,7 +22,7 @@ export interface ApiResponse<T> {
     message?: string;
 }
 
-export interface PaginatedResponse<T> {
+export interface PaginatedResponse {
     success: boolean;
     data: {
         [key: string]: any;
@@ -191,7 +191,7 @@ class ApiClient {
         birthday?: boolean;
         sortBy?: string;
         sortOrder?: string;
-    }): Promise<PaginatedResponse<any>> {
+    }): Promise<PaginatedResponse> {
         const queryParams = new URLSearchParams();
         if (params) {
             Object.entries(params).forEach(([key, value]) => {
@@ -253,7 +253,7 @@ class ApiClient {
         offerType?: string;
         paymentMode?: string;
         search?: string;
-    }): Promise<PaginatedResponse<any>> {
+    }): Promise<PaginatedResponse> {
         const queryParams = new URLSearchParams();
         if (params) {
             Object.entries(params).forEach(([key, value]) => {
@@ -312,7 +312,7 @@ class ApiClient {
         category?: string;
         priority?: string;
         search?: string;
-    }): Promise<PaginatedResponse<any>> {
+    }): Promise<PaginatedResponse> {
         const queryParams = new URLSearchParams();
         if (params) {
             Object.entries(params).forEach(([key, value]) => {
@@ -361,7 +361,7 @@ class ApiClient {
         search?: string;
         sortBy?: string;
         sortOrder?: string;
-    }): Promise<PaginatedResponse<any>> {
+    }): Promise<PaginatedResponse> {
         const queryParams = new URLSearchParams();
         if (params) {
             Object.entries(params).forEach(([key, value]) => {

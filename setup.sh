@@ -5,6 +5,9 @@
 
 set -e  # Exit on error
 
+# Ensure we are in the script's directory
+cd "$(dirname "$0")"
+
 # Color codes for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -283,7 +286,7 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     print_info "Building frontend..."
     if npm run build; then
         print_success "Frontend built successfully"
-        print_info "Production files are in the 'dist' directory"
+        print_info "Production files are in the 'build' directory"
     else
         print_error "Frontend build failed"
     fi

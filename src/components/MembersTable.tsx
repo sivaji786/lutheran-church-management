@@ -445,6 +445,18 @@ export function MembersTable({ members, allMembers, totalRecords, onImportMember
     return Array.from(wards).sort();
   }, [allMembers, members]);
 
+  // Helper to mask mobile number
+  const maskMobileResult = (mobile: string): string => {
+    // Toggle this to show/hide full mobile numbers
+    const SHOW_FULL_MOBILE = false;
+
+    if (!mobile) return '';
+    if (SHOW_FULL_MOBILE) return mobile;
+
+    if (mobile.length <= 4) return mobile;
+    return '*'.repeat(mobile.length - 4) + mobile.slice(-4);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header Section */}
@@ -992,7 +1004,7 @@ export function MembersTable({ members, allMembers, totalRecords, onImportMember
                     )}
                     {visibleColumns.aadhar && <TableCell className="font-mono text-sm">{member.aadharNumber || <span className="text-slate-400 italic">NoData</span>}</TableCell>}
                     {visibleColumns.ward && <TableCell>{member.ward || <span className="text-slate-400 italic">NoData</span>}</TableCell>}
-                    {visibleColumns.mobile && <TableCell>{member.mobile || <span className="text-slate-400 italic">NoData</span>}</TableCell>}
+                    {visibleColumns.mobile && <TableCell>{maskMobileResult(member.mobile) || <span className="text-slate-400 italic">NoData</span>}</TableCell>}
                     {visibleColumns.remarks && (
                       <TableCell className="max-w-[200px] truncate text-sm text-slate-600">
                         {member.remarks || <span className="text-slate-400 italic">NoData</span>}

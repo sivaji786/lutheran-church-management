@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Shield, UserCircle, ArrowLeft, LogIn, Phone, CreditCard, Lock } from 'lucide-react';
+import { useState } from 'react';
+import { Shield, UserCircle, LogIn, Phone, CreditCard, Lock } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card, CardContent } from '../ui/card';
 import { Input } from '../ui/input';
@@ -11,10 +11,9 @@ import { ImageWithFallback } from '../figma/ImageWithFallback';
 
 type LoginPageProps = {
   onLogin: (user: User) => void;
-  onNavigate: (page: 'home') => void;
 };
 
-export function LoginPage({ onLogin, onNavigate }: LoginPageProps) {
+export function LoginPage({ onLogin }: LoginPageProps) {
   const [adminUsername, setAdminUsername] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
   const [memberMobile, setMemberMobile] = useState('');
@@ -62,23 +61,6 @@ export function LoginPage({ onLogin, onNavigate }: LoginPageProps) {
     }
   };
 
-  const loadAdminDemo = () => {
-    setAdminUsername('admin');
-    setAdminPassword('admin123');
-    toast.info('Demo credentials loaded. Click Sign In to continue.');
-  };
-
-  const loadMemberDemo = () => {
-    if (memberLoginType === 'mobile') {
-      setMemberMobile('9949639184');
-      setMemberPassword('Member@123');
-    } else {
-      setMemberCode('LCH-0466-5');
-      setMemberPassword('Member@123');
-    }
-    toast.info('Demo credentials loaded. Click Sign In to continue.');
-  };
-
   const [activeTab, setActiveTab] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     return params.get('tab') === 'admin' ? 'admin' : 'member';
@@ -96,13 +78,6 @@ export function LoginPage({ onLogin, onNavigate }: LoginPageProps) {
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDEzNGg3NjBWMEgzNnoiLz48L2c+PC9nPjwvc3ZnPg==')] opacity-10"></div>
 
         <div className="container mx-auto px-4 text-center relative z-10">
-          <button
-            onClick={() => onNavigate('home')}
-            className="inline-flex items-center gap-2 text-blue-200 hover:text-white transition-colors mb-8 group"
-          >
-            <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-            <span>Back to Home</span>
-          </button>
 
           <div className="flex items-center justify-center mb-6">
             <div className="w-20 h-20 bg-white/10 backdrop-blur-sm rounded-2xl shadow-elegant flex items-center justify-center">
@@ -267,29 +242,6 @@ export function LoginPage({ onLogin, onNavigate }: LoginPageProps) {
                             <LogIn className="w-5 h-5 mr-2" />
                             {isLoading ? 'Signing in...' : 'Sign In as Member'}
                           </Button>
-
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={loadMemberDemo}
-                            className="w-full h-12 border-2 border-amber-300 text-amber-700 hover:bg-amber-50"
-                          >
-                            Try Demo Login
-                          </Button>
-
-                          <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
-                            <p className="text-sm text-blue-900 mb-1">Demo Credentials:</p>
-                            <p className="text-sm text-slate-600">
-                              {memberLoginType === 'mobile' ? 'Mobile' : 'Member Code'}:{' '}
-                              <code className="bg-white px-2 py-1 rounded text-blue-900">
-                                {memberLoginType === 'mobile' ? '9949639184' : 'LCH-0466-5'}
-                              </code>
-                            </p>
-                            <p className="text-sm text-slate-600">
-                              Password:{' '}
-                              <code className="bg-white px-2 py-1 rounded text-blue-900">Member@123</code>
-                            </p>
-                          </div>
                         </form>
                       </TabsContent>
 
@@ -343,27 +295,6 @@ export function LoginPage({ onLogin, onNavigate }: LoginPageProps) {
                             <Shield className="w-5 h-5 mr-2" />
                             {isLoading ? 'Signing in...' : 'Sign In as Admin'}
                           </Button>
-
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={loadAdminDemo}
-                            className="w-full h-12 border-2 border-amber-300 text-amber-700 hover:bg-amber-50"
-                          >
-                            Try Demo Login
-                          </Button>
-
-                          <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
-                            <p className="text-sm text-blue-900 mb-1">Demo Credentials:</p>
-                            <p className="text-sm text-slate-600">
-                              Username:{' '}
-                              <code className="bg-white px-2 py-1 rounded text-blue-900">admin</code>
-                            </p>
-                            <p className="text-sm text-slate-600">
-                              Password:{' '}
-                              <code className="bg-white px-2 py-1 rounded text-blue-900">admin123</code>
-                            </p>
-                          </div>
                         </form>
                       </TabsContent>
                     </Tabs>
@@ -372,8 +303,8 @@ export function LoginPage({ onLogin, onNavigate }: LoginPageProps) {
               </div>
             </div>
           </div>
-        </div>
-      </section>
-    </div>
+        </div >
+      </section >
+    </div >
   );
 }
