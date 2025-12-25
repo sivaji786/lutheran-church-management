@@ -13,6 +13,13 @@ backend/writable/cache/*
 backend/writable/logs/*
 backend/writable/session/*
 backend/writable/uploads/*
+dist-ssr
+*.local
+
+# Deployment artifacts
+deployment/
+lutheran-deployment.zip
+frontend/config.js
 
 # Keep writable directories but ignore contents
 !backend/writable/cache/.gitkeep

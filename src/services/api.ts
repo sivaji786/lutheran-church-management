@@ -1,5 +1,49 @@
-// API Configuration
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+// API Configuration - Runtime config takes precedence over build-time env
+declare global {
+    interface Window {
+        APP_CONFIG?: {
+            API_BASE_URL: string;
+        };
+    }
+}
+
+// Auto-detect API URL based on environment
+function getApiBaseUrl(): string {
+    // 1. Check if config.js loaded (highest priority)
+    if (typeof window !== 'undefined' && window.APP_CONFIG?.API_BASE_URL) {
+        return window.APP_CONFIG.API_BASE_URL;
+    }
+
+    // 2. Check Vite env variable (development)
+    if (import.meta.env.VITE_API_BASE_URL) {
+        return import.meta.env.VITE_API_BASE_URL;
+    }
+
+    // 3. Auto-detect based on current domain (production fallback)
+    if (typeof window !== 'undefined') {
+        const currentUrl = window.location.origin;
+
+        // If running on localhost, use localhost API
+        if (currentUrl.includes('localhost') || currentUrl.includes('127.0.0.1')) {
+            return 'http://localhost:8080';
+        }
+
+        // For production, assume API is at /backend relative to current domain
+        return `${currentUrl}/backend`;
+    }
+
+    // 4. Final fallback
+    return 'http://localhost:8080';
+}
+
+const API_BASE_URL = getApiBaseUrl();
+
+console.log('🔧 API Configuration:', {
+    source: window.APP_CONFIG ? 'config.js' :
+        import.meta.env.VITE_API_BASE_URL ? 'env variable' :
+            'auto-detected',
+    apiBaseUrl: API_BASE_URL
+});
 
 // Types
 export interface LoginResponse {
@@ -121,9 +165,47 @@ class ApiClient {
 
         if (!response.ok) {
             const error = await response.json().catch(() => ({
-                message: 'An error occurred',
+                message: null,
             }));
-            throw new Error(error.message || `HTTP error! status: ${response.status}`);
+
+            // Provide user-friendly error messages based on status code
+            let userMessage = error.message;
+
+            if (!userMessage) {
+                switch (response.status) {
+                    case 400:
+                        userMessage = 'Invalid request. Please check your input and try again.';
+                        break;
+                    case 401:
+                        userMessage = 'Invalid credentials. Please check your username and password.';
+                        break;
+                    case 403:
+                        userMessage = 'You do not have permission to perform this action.';
+                        break;
+                    case 404:
+                        userMessage = 'The requested resource was not found.';
+                        break;
+                    case 409:
+                        userMessage = 'This record already exists or conflicts with existing data.';
+                        break;
+                    case 422:
+                        userMessage = 'The data provided is invalid. Please check and try again.';
+                        break;
+                    case 429:
+                        userMessage = 'Too many requests. Please wait a moment and try again.';
+                        break;
+                    case 500:
+                        userMessage = 'Server error. Please try again later or contact support.';
+                        break;
+                    case 503:
+                        userMessage = 'Service temporarily unavailable. Please try again later.';
+                        break;
+                    default:
+                        userMessage = 'An unexpected error occurred. Please try again.';
+                }
+            }
+
+            throw new Error(userMessage);
         }
 
         const data = await response.json();

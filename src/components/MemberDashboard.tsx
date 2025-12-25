@@ -8,8 +8,7 @@ import { TicketForm } from './TicketForm';
 import { MyTickets } from './MyTickets';
 import { Member, Offering, Ticket as TicketType } from '../App';
 import { ChangePasswordDialog } from './ChangePasswordDialog';
-
-const logoImage = 'https://placehold.co/100x100?text=Logo';
+import churchLogo from '../assets/church_logo_new.png';
 
 type MemberDashboardProps = {
   memberCode: string;
@@ -37,6 +36,9 @@ export function MemberDashboard({
   const [showChangePasswordDialog, setShowChangePasswordDialog] = useState(false);
 
   const member = members.find((m) => m.memberCode === memberCode);
+
+  // For members, offerings and tickets come from props (empty arrays)
+  // They don't need to see this data in member portal
   const memberOfferings = offerings.filter((o) => o.memberId === member?.id);
   const totalOfferings = memberOfferings.reduce((sum, offering) => sum + offering.amount, 0);
   const memberTickets = tickets.filter((t) => t.memberId === member?.id);
@@ -93,10 +95,10 @@ export function MemberDashboard({
               </button>
 
               <div className="flex items-center gap-3">
-                <img src={logoImage} alt="Lutheran Church Logo" className="h-12 w-auto" />
+                <img src={churchLogo} alt="Lutheran Church Logo" className="h-12 w-auto" />
                 <div className="hidden sm:block">
-                  <h2 className="text-blue-900">Member Portal</h2>
-                  <p className="text-slate-600 text-sm">Welcome, {member.name}</p>
+                  <h2 className="text-blue-900 text-lg font-semibold">Andhra Evangelical Lutheran Church Hyderabad</h2>
+                  <p className="text-slate-600 text-sm">Member Portal - Welcome, {member.name}</p>
                 </div>
               </div>
             </div>

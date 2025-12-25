@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { storage } from '../utils/localStorage';
-import { User, Search, Download, Upload, ChevronLeft, ChevronRight, FileDown, FileUp, Filter, X, ArrowUpDown, ArrowUp, ArrowDown, Settings2, Eye, EyeOff } from 'lucide-react';
+import { User, Search, Download, Upload, ChevronLeft, ChevronRight, FileDown, FileUp, Filter, X, ArrowUpDown, ArrowUp, ArrowDown, Settings2, Eye, EyeOff, IndianRupee } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuItem } from './ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Badge } from './ui/badge';
@@ -32,11 +32,12 @@ type MembersTableProps = {
   totalRecords: number;
   onImportMembers?: (members: Member[]) => void;
   onMemberClick?: (member: Member) => void;
+  onAddOffering?: (member: Member) => void;
   initialBirthdayFilter?: boolean;
   onFilterChange: (filters: MemberFilters) => void;
 };
 
-export function MembersTable({ members, allMembers, totalRecords, onImportMembers, onMemberClick, initialBirthdayFilter, onFilterChange }: MembersTableProps) {
+export function MembersTable({ members, allMembers, totalRecords, onImportMembers, onMemberClick, onAddOffering, initialBirthdayFilter, onFilterChange }: MembersTableProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [baptismFilter, setBaptismFilter] = useState<string>('all');
@@ -947,6 +948,7 @@ export function MembersTable({ members, allMembers, totalRecords, onImportMember
                   </TableHead>
                 )}
                 {visibleColumns.remarks && <TableHead>Remarks</TableHead>}
+                {onAddOffering && <TableHead className="text-center">Actions</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -1008,6 +1010,20 @@ export function MembersTable({ members, allMembers, totalRecords, onImportMember
                     {visibleColumns.remarks && (
                       <TableCell className="max-w-[200px] truncate text-sm text-slate-600">
                         {member.remarks || <span className="text-slate-400 italic">NoData</span>}
+                      </TableCell>
+                    )}
+                    {onAddOffering && (
+                      <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-amber-200 text-amber-700 hover:bg-amber-50"
+                          onClick={() => onAddOffering(member)}
+                          title="Add Offering for this member"
+                        >
+                          <IndianRupee className="w-4 h-4 mr-1" />
+                          Add Offering
+                        </Button>
                       </TableCell>
                     )}
                   </TableRow>

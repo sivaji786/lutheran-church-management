@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { Combobox, ComboboxOption } from './ui/combobox';
 import { Card } from './ui/card';
 import { Member, Offering } from '../App';
 import { toast } from 'sonner';
@@ -10,15 +11,26 @@ import { toast } from 'sonner';
 type OfferingFormProps = {
   members: Member[];
   onAddOffering: (offering: Offering) => Promise<boolean>;
+  preSelectedMemberId?: string;
 };
 
-export function OfferingForm({ members, onAddOffering }: OfferingFormProps) {
-  const [selectedMemberId, setSelectedMemberId] = useState('');
+export function OfferingForm({ members, onAddOffering, preSelectedMemberId }: OfferingFormProps) {
+  const [selectedMemberId, setSelectedMemberId] = useState(preSelectedMemberId || '');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [amount, setAmount] = useState('');
   const [offerType, setOfferType] = useState('');
   const [paymentMode, setPaymentMode] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Convert members to combobox options for searchable dropdown
+  const memberOptions: ComboboxOption[] = useMemo(() => {
+    return members.map((member) => ({
+      value: member.id || '',
+      label: `${member.name} (${member.memberCode})`,
+      searchText: `${member.name} ${member.memberCode} ${member.mobile || ''}`,
+    }));
+  }, [members]);
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,18 +73,14 @@ export function OfferingForm({ members, onAddOffering }: OfferingFormProps) {
         <div className="grid md:grid-cols-2 gap-6">
           <div className="space-y-2">
             <Label htmlFor="member">Select Member *</Label>
-            <Select value={selectedMemberId} onValueChange={setSelectedMemberId} required>
-              <SelectTrigger id="member">
-                <SelectValue placeholder="Choose a member" />
-              </SelectTrigger>
-              <SelectContent>
-                {members.map((member) => (
-                  <SelectItem key={member.id} value={member.id}>
-                    {member.name} ({member.memberCode})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Combobox
+              options={memberOptions}
+              value={selectedMemberId}
+              onValueChange={setSelectedMemberId}
+              placeholder="Search by name or member code..."
+              searchPlaceholder="Type to search members..."
+              emptyText="No members found. Try a different search."
+            />
           </div>
 
           <div className="space-y-2">

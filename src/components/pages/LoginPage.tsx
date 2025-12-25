@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Shield, UserCircle, LogIn, Phone, CreditCard, Lock } from 'lucide-react';
+import { Shield, UserCircle, LogIn, Lock } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card, CardContent } from '../ui/card';
 import { Input } from '../ui/input';
@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { User } from '../../App';
 import { toast } from 'sonner';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
+import loginLeftPic from '../../assets/login_leftpic.jpg';
 
 type LoginPageProps = {
   onLogin: (user: User) => void;
@@ -16,10 +17,8 @@ type LoginPageProps = {
 export function LoginPage({ onLogin }: LoginPageProps) {
   const [adminUsername, setAdminUsername] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
-  const [memberMobile, setMemberMobile] = useState('');
-  const [memberCode, setMemberCode] = useState('');
+  const [memberIdentifier, setMemberIdentifier] = useState(''); // Can be mobile or member code
   const [memberPassword, setMemberPassword] = useState('');
-  const [memberLoginType, setMemberLoginType] = useState<'mobile' | 'memberCode'>('mobile');
   const [isLoading, setIsLoading] = useState(false);
 
   const handleAdminLogin = async (e: React.FormEvent) => {
@@ -47,8 +46,12 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
     try {
       const { apiClient } = await import('../../services/api');
-      const identifier = memberLoginType === 'mobile' ? memberMobile : memberCode;
-      const response = await apiClient.memberLogin(identifier, memberLoginType, memberPassword);
+
+      // Auto-detect if it's a mobile number (all digits) or member code
+      const isNumeric = /^\d+$/.test(memberIdentifier);
+      const loginType = isNumeric ? 'mobile' : 'memberCode';
+
+      const response = await apiClient.memberLogin(memberIdentifier, loginType, memberPassword);
 
       if (response.success) {
         onLogin({ type: 'member', memberCode: response.data.memberCode });
@@ -79,15 +82,9 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
         <div className="container mx-auto px-4 text-center relative z-10">
 
-          <div className="flex items-center justify-center mb-6">
-            <div className="w-20 h-20 bg-white/10 backdrop-blur-sm rounded-2xl shadow-elegant flex items-center justify-center">
-              <LogIn className="w-10 h-10 text-white" />
-            </div>
-          </div>
-
-          <h1 className="text-white mb-4">Member Portal</h1>
+          <h1 className="text-white mb-4"> ANDHRA EVANGELICAL LUTHERAN CHURCH (AELC) HYDERABAD</h1>
           <p className="text-blue-100 max-w-2xl mx-auto leading-relaxed text-lg">
-            Access your church member portal to view your details and offering history
+            Member Portal
           </p>
         </div>
       </section>
@@ -103,7 +100,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                 <div className="relative">
                   <div className="aspect-[4/5] rounded-2xl overflow-hidden shadow-elegant-lg">
                     <ImageWithFallback
-                      src="https://images.unsplash.com/photo-1762721373506-6e48fd53c530?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjaHVyY2glMjBpbnRlcmlvciUyMHBlYWNlZnVsfGVufDF8fHx8MTc2MjgzOTM5MHww&ixlib=rb-4.1.0&q=80&w=1080"
+                      src={loginLeftPic}
                       alt="Church Interior"
                       className="w-full h-full object-cover"
                     />
@@ -142,79 +139,27 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
                       {/* Member Login */}
                       <TabsContent value="member" className="space-y-6">
-                        {/* Login Type Selector */}
-                        <div className="grid grid-cols-2 gap-3">
-                          <button
-                            type="button"
-                            onClick={() => setMemberLoginType('mobile')}
-                            className={`p-4 rounded-xl border-2 transition-all duration-300 ${memberLoginType === 'mobile'
-                              ? 'border-blue-600 bg-blue-50 shadow-md'
-                              : 'border-slate-200 hover:border-blue-200'
-                              }`}
-                          >
-                            <Phone className={`w-6 h-6 mx-auto mb-2 ${memberLoginType === 'mobile' ? 'text-blue-600' : 'text-slate-400'
-                              }`} />
-                            <p className={`text-sm ${memberLoginType === 'mobile' ? 'text-blue-900' : 'text-slate-600'
-                              }`}>
-                              Mobile Number
-                            </p>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => setMemberLoginType('memberCode')}
-                            className={`p-4 rounded-xl border-2 transition-all duration-300 ${memberLoginType === 'memberCode'
-                              ? 'border-blue-600 bg-blue-50 shadow-md'
-                              : 'border-slate-200 hover:border-blue-200'
-                              }`}
-                          >
-                            <CreditCard className={`w-6 h-6 mx-auto mb-2 ${memberLoginType === 'memberCode' ? 'text-blue-600' : 'text-slate-400'
-                              }`} />
-                            <p className={`text-sm ${memberLoginType === 'memberCode' ? 'text-blue-900' : 'text-slate-600'
-                              }`}>
-                              Member Code
-                            </p>
-                          </button>
-                        </div>
-
                         <form onSubmit={handleMemberLogin} className="space-y-5">
-                          {memberLoginType === 'mobile' ? (
-                            <div className="space-y-2">
-                              <Label htmlFor="member-mobile" className="text-slate-700">
-                                Mobile Number
-                              </Label>
-                              <div className="relative">
-                                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                                <Input
-                                  id="member-mobile"
-                                  type="tel"
-                                  placeholder="Enter your mobile number"
-                                  value={memberMobile}
-                                  onChange={(e) => setMemberMobile(e.target.value)}
-                                  className="pl-11 h-12"
-                                  required
-                                />
-                              </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="member-identifier" className="text-slate-700">
+                              Mobile Number or Member Code
+                            </Label>
+                            <div className="relative">
+                              <UserCircle className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                              <Input
+                                id="member-identifier"
+                                type="text"
+                                placeholder="Enter mobile number or member code"
+                                value={memberIdentifier}
+                                onChange={(e) => setMemberIdentifier(e.target.value.trim())}
+                                className="pl-11 h-12"
+                                required
+                              />
                             </div>
-                          ) : (
-                            <div className="space-y-2">
-                              <Label htmlFor="member-code" className="text-slate-700">
-                                Member Code
-                              </Label>
-                              <div className="relative">
-                                <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                                <Input
-                                  id="member-code"
-                                  type="text"
-                                  placeholder="Enter your member code"
-                                  value={memberCode}
-                                  onChange={(e) => setMemberCode(e.target.value.toUpperCase())}
-                                  className="pl-11 h-12"
-                                  required
-                                />
-                              </div>
-                            </div>
-                          )}
+                            <p className="text-xs text-slate-500">
+                              You can use either your mobile number or member code to sign in
+                            </p>
+                          </div>
 
                           <div className="space-y-2">
                             <Label htmlFor="member-password" className="text-slate-700">

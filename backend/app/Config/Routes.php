@@ -7,6 +7,48 @@ use CodeIgniter\Router\RouteCollection;
  */
 $routes->get('/', 'Home::index');
 
+// Helper function for CORS OPTIONS responses
+$corsResponse = function() {
+    $response = service('response');
+    $request = service('request');
+    $origin = $request->getHeaderLine('Origin');
+    
+    // Allow localhost origins in development
+    if (ENVIRONMENT === 'development' && preg_match('/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/', $origin)) {
+        $allowedOrigin = $origin;
+    } else {
+        $allowedOrigin = '*';
+    }
+    
+    $response->setHeader('Access-Control-Allow-Origin', $allowedOrigin);
+    $response->setHeader('Access-Control-Allow-Headers', 'X-API-KEY, Origin, X-Requested-With, Content-Type, Accept, Access-Control-Request-Method, Authorization');
+    $response->setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE, PATCH');
+    $response->setHeader('Access-Control-Allow-Credentials', 'true');
+    $response->setHeader('Access-Control-Max-Age', '86400');
+    $response->setStatusCode(200);
+    $response->setBody('');
+    return $response;
+};
+
+// CORS preflight OPTIONS routes - must come before other routes
+$routes->options('auth/admin/login', $corsResponse);
+$routes->options('auth/member/login', $corsResponse);
+$routes->options('auth/change-password', $corsResponse);
+$routes->options('members', $corsResponse);
+$routes->options('members/(:any)', $corsResponse);
+$routes->options('members/(:any)/offerings', $corsResponse);
+$routes->options('members/(:any)/status', $corsResponse);
+$routes->options('members/(:any)/reset-password', $corsResponse);
+$routes->options('offerings', $corsResponse);
+$routes->options('offerings/(:any)', $corsResponse);
+$routes->options('tickets', $corsResponse);
+$routes->options('tickets/(:any)', $corsResponse);
+$routes->options('tickets/(:any)/status', $corsResponse);
+$routes->options('non-member-offerings', $corsResponse);
+$routes->options('non-member-offerings/(:any)', $corsResponse);
+$routes->options('non-member-offerings/statistics', $corsResponse);
+$routes->options('dashboard/stats', $corsResponse);
+
 // Route configuration
 
 // Authentication

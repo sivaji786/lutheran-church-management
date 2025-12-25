@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { LogOut, UserPlus, DollarSign, Users, TrendingUp, LayoutDashboard, Menu, X, ArrowLeft, Ticket, Cake, HandCoins } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
@@ -16,8 +16,7 @@ import { Member, Offering, Ticket as TicketType } from '../App';
 import { storage } from '../utils/localStorage';
 import { apiClient } from '../services/api';
 import { toast } from 'sonner';
-
-const logoImage = 'https://placehold.co/100x100?text=Logo';
+import churchLogo from '../assets/church_logo_new.png';
 
 type AdminDashboardProps = {
   onLogout: () => void;
@@ -35,6 +34,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const [membersView, setMembersView] = useState<MembersView>('list');
   const [offeringsView, setOfferingsView] = useState<OfferingsView>('list');
   const [showBirthdayFilter, setShowBirthdayFilter] = useState(false);
+  const [preSelectedMemberId, setPreSelectedMemberId] = useState<string | undefined>(undefined);
 
   // Data State
   const [members, setMembers] = useState<Member[]>([]);
@@ -196,41 +196,46 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     }
   };
 
+  const handleQuickAddOffering = (member: Member) => {
+    setPreSelectedMemberId(member.id);
+    setCurrentMenu('offerings');
+    setOfferingsView('add');
+  };
+
   const handleImportMembers = async (importedMembers: Member[]) => {
     let successCount = 0;
     let failCount = 0;
 
-    const toastId = toast.loading(`Importing ${importedMembers.length} members...`);
+    // Show initial message
+    toast.info(`Importing ${importedMembers.length} members...`);
 
-    for (const member of importedMembers) {
-      try {
-        // Remove temporary ID if present
-        const { id, ...memberData } = member;
-        const response = await apiClient.createMember(memberData);
-        if (response.success) {
-          successCount++;
-        } else {
+    try {
+      for (const member of importedMembers) {
+        try {
+          // Remove temporary ID if present
+          const { id, ...memberData } = member;
+          const response = await apiClient.createMember(memberData);
+          if (response.success) {
+            successCount++;
+          } else {
+            failCount++;
+          }
+        } catch (error) {
           failCount++;
         }
-      } catch (error) {
-        failCount++;
       }
-    }
 
-    toast.dismiss(toastId);
+      if (successCount > 0) {
+        fetchAllData(); // Refresh all data
+      }
 
-    if (successCount > 0) {
-      toast.success(`Successfully imported ${successCount} members`);
-      fetchAllData(); // Refresh all data
-      // Also trigger table refresh if possible, but fetchAllData updates allMembers which might be enough if we use it, 
-      // but table uses its own fetch. We might need to force table refresh.
-      // For now, user can refresh manually or we rely on allMembers update if table used it (it doesn't for display).
-      // Let's call fetchMembers with current filters if we could, but we don't have them.
-      // We'll just rely on the user refreshing or navigating.
-    }
-
-    if (failCount > 0) {
-      toast.error(`Failed to import ${failCount} members`);
+      if (failCount > 0) {
+        toast.error(`Failed to import ${failCount} members. Successfully imported ${successCount} members.`);
+      } else {
+        toast.success(`Successfully imported ${successCount} members`);
+      }
+    } catch (error) {
+      toast.error('Failed to import members');
     }
   };
 
@@ -309,10 +314,10 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
               </button>
 
               <div className="flex items-center gap-3">
-                <img src={logoImage} alt="Lutheran Church Logo" className="h-12 w-auto" />
+                <img src={churchLogo} alt="Lutheran Church Logo" className="h-12 w-auto" />
                 <div className="hidden sm:block">
-                  <h2 className="text-blue-900">Admin Portal</h2>
-                  <p className="text-slate-600 text-sm">Church Management System</p>
+                  <h2 className="text-blue-900 text-lg font-semibold">Andhra Evangelical Lutheran Church Hyderabad</h2>
+                  <p className="text-slate-600 text-sm">Admin Portal</p>
                 </div>
               </div>
             </div>
@@ -629,10 +634,12 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                       <CardContent className="pt-6">
                         <OfferingForm
                           members={allMembers}
+                          preSelectedMemberId={preSelectedMemberId}
                           onAddOffering={async (offering) => {
                             const success = await handleAddOffering(offering);
                             if (success) {
                               setOfferingsView('list');
+                              setPreSelectedMemberId(undefined); // Clear pre-selection
                             }
                             return success;
                           }}
@@ -682,6 +689,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                               toast.error('Failed to load member details');
                             }
                           }}
+                          onAddOffering={handleQuickAddOffering}
                           initialBirthdayFilter={showBirthdayFilter}
                           onFilterChange={fetchMembers}
                         />

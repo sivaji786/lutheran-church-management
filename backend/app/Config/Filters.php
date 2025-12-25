@@ -51,7 +51,7 @@ class Filters extends BaseFilters
      */
     public array $required = [
         'before' => [
-            'forcehttps', // Force Global Secure Requests
+            // 'forcehttps', // Force Global Secure Requests - Disabled for local development
             'pagecache',  // Web Page Caching
         ],
         'after' => [
@@ -78,6 +78,7 @@ class Filters extends BaseFilters
             // 'invalidchars',
         ],
         'after' => [
+            'cors',  // Add CORS headers to all responses
             // 'honeypot',
             // 'secureheaders',
         ],

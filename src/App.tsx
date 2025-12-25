@@ -1,11 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { storage } from './utils/localStorage';
 import { LoginPage } from './components/pages/LoginPage';
-import { AdminDashboard } from './components/AdminDashboard';
-import { MemberDashboard } from './components/MemberDashboard';
-import { TicketDetailPage } from './components/pages/TicketDetailPage';
+import { LoadingSpinner } from './components/LoadingSpinner';
+// Lazy load heavy dashboard components
+const AdminDashboard = lazy(() => import('./components/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
+const MemberDashboard = lazy(() => import('./components/MemberDashboard').then(m => ({ default: m.MemberDashboard })));
+const TicketDetailPage = lazy(() => import('./components/pages/TicketDetailPage').then(m => ({ default: m.TicketDetailPage })));
 import { apiClient } from './services/api';
-import { toast } from 'sonner';
+import { toast, Toaster } from 'sonner';
 
 export type Member = {
   id?: string;
@@ -103,17 +105,116 @@ function App() {
     const savedUser = storage.get<User>('currentUser');
     if (savedUser) {
       setCurrentUser(savedUser);
-      // Fetch data for both admin and member to ensure dashboard works
-      apiClient.setToken(savedUser.token || ''); // Ensure token is set
-      fetchData();
+      // Ensure token is set
+      apiClient.setToken(savedUser.token || '');
+
+      // Fetch data based on user type
+      if (savedUser.type === 'admin') {
+        fetchData(); // Admin needs all data
+      } else {
+        // Member - fetch member record and their specific data
+        (async () => {
+          try {
+            const memberRes = await apiClient.getMembers({
+              search: savedUser.memberCode,
+              limit: 10
+            });
+
+            if (memberRes.success && memberRes.data.members) {
+              // Get the member ID to fetch their full details including family members
+              const member = memberRes.data.members.find(
+                (m: any) => m.memberCode === savedUser.memberCode
+              );
+
+              if (member?.id) {
+                // Fetch full member details including family members
+                const memberDetailRes = await apiClient.getMember(member.id);
+                if (memberDetailRes.success && memberDetailRes.data) {
+                  const fullMemberData = memberDetailRes.data;
+
+                  // Set members array with the logged-in member and their family members
+                  if (fullMemberData.familyMembers && fullMemberData.familyMembers.length > 0) {
+                    setMembers(fullMemberData.familyMembers);
+                  } else {
+                    setMembers([fullMemberData]);
+                  }
+                }
+
+                // Fetch only this member's offerings using dedicated endpoint
+                const offeringsRes = await apiClient.getMemberOfferings(member.id);
+                if (offeringsRes.success && offeringsRes.data.offerings) {
+                  setOfferings(offeringsRes.data.offerings);
+                }
+
+                // Fetch only this member's tickets using memberId filter
+                const ticketsRes = await apiClient.getTickets({ memberId: member.id, limit: 1000 });
+                if (ticketsRes.success && ticketsRes.data.tickets) {
+                  setTickets(ticketsRes.data.tickets);
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Error restoring session:', error);
+          }
+        })();
+      }
     }
   }, []);
 
-  const handleLogin = (user: User) => {
+  const handleLogin = async (user: User) => {
     setCurrentUser(user);
     storage.set('currentUser', user);
-    // Fetch data for both admin and member
-    fetchData();
+
+    // Only fetch data needed for this user type
+    if (user.type === 'admin') {
+      // Admin needs all data
+      await fetchData();
+    } else {
+      // Member - fetch member record and their specific data
+      try {
+        const memberRes = await apiClient.getMembers({
+          search: user.memberCode,
+          limit: 10
+        });
+
+        if (memberRes.success && memberRes.data.members) {
+          // Get the member ID to fetch their full details including family members
+          const member = memberRes.data.members.find(
+            (m: any) => m.memberCode === user.memberCode
+          );
+
+          if (member?.id) {
+            // Fetch full member details including family members
+            const memberDetailRes = await apiClient.getMember(member.id);
+            if (memberDetailRes.success && memberDetailRes.data) {
+              const fullMemberData = memberDetailRes.data;
+
+              // Set members array with the logged-in member and their family members
+              if (fullMemberData.familyMembers && fullMemberData.familyMembers.length > 0) {
+                setMembers(fullMemberData.familyMembers);
+              } else {
+                setMembers([fullMemberData]);
+              }
+            }
+
+            // Fetch only this member's offerings using dedicated endpoint
+            const offeringsRes = await apiClient.getMemberOfferings(member.id);
+            if (offeringsRes.success && offeringsRes.data.offerings) {
+              setOfferings(offeringsRes.data.offerings);
+            }
+
+            // Fetch only this member's tickets using memberId filter
+            const ticketsRes = await apiClient.getTickets({ memberId: member.id, limit: 1000 });
+            if (ticketsRes.success && ticketsRes.data.tickets) {
+              setTickets(ticketsRes.data.tickets);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching member data:', error);
+        toast.error('Failed to load your data. Please try again.');
+      }
+    }
   };
 
   const handleLogout = () => {
@@ -197,40 +298,58 @@ function App() {
       // Show ticket detail page if viewing a ticket
       if (currentPage === 'ticketDetail' && selectedTicket) {
         return (
-          <TicketDetailPage
-            ticket={selectedTicket}
-            onUpdateTicket={updateTicket}
-            onBack={handleBackFromTicket}
-          />
+          <>
+            <Toaster position="top-right" richColors closeButton />
+            <Suspense fallback={<LoadingSpinner />}>
+              <TicketDetailPage
+                ticket={selectedTicket}
+                onUpdateTicket={updateTicket}
+                onBack={handleBackFromTicket}
+              />
+            </Suspense>
+          </>
         );
       }
 
       // Show admin dashboard
       return (
-        <AdminDashboard
-          onLogout={handleLogout}
-        />
+        <>
+          <Toaster position="top-right" richColors closeButton />
+          <Suspense fallback={<LoadingSpinner />}>
+            <AdminDashboard
+              onLogout={handleLogout}
+            />
+          </Suspense>
+        </>
       );
     }
 
     return (
-      <MemberDashboard
-        memberCode={currentUser.memberCode!}
-        members={members}
-        offerings={offerings}
-        tickets={tickets}
-        onAddTicket={addTicket}
-        onChangePassword={changeMemberPassword}
-        onLogout={handleLogout}
-      />
+      <>
+        <Toaster position="top-right" richColors closeButton />
+        <Suspense fallback={<LoadingSpinner />}>
+          <MemberDashboard
+            memberCode={currentUser.memberCode!}
+            members={members}
+            offerings={offerings}
+            tickets={tickets}
+            onAddTicket={addTicket}
+            onChangePassword={changeMemberPassword}
+            onLogout={handleLogout}
+          />
+        </Suspense>
+      </>
     );
   }
 
   // Public pages (Only Login in portal mode)
   return (
-    <div className="min-h-screen bg-white">
-      {currentPage === 'login' && <LoginPage onLogin={handleLogin} />}
-    </div>
+    <>
+      <Toaster position="top-right" richColors closeButton />
+      <div className="min-h-screen bg-white">
+        {currentPage === 'login' && <LoginPage onLogin={handleLogin} />}
+      </div>
+    </>
   );
 }
 

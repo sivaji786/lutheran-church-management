@@ -31,10 +31,16 @@ class Auth extends BaseController
         $user = $model->where('username', $username)->first();
 
         if (!$user) {
+            // Log failed attempt - user not found
+            $security = new \App\Libraries\SecurityMonitor();
+            $security->logFailedLogin($username, 'admin');
             return $this->failNotFound('User not found');
         }
 
         if (!password_verify($password, $user['password'])) {
+            // Log failed attempt - wrong password
+            $security = new \App\Libraries\SecurityMonitor();
+            $security->logFailedLogin($username, 'admin');
             return $this->fail('Invalid password');
         }
 
@@ -92,10 +98,16 @@ class Auth extends BaseController
         }
 
         if (!$user) {
+            // Log failed attempt - member not found
+            $security = new \App\Libraries\SecurityMonitor();
+            $security->logFailedLogin($identifier, 'member');
             return $this->failNotFound('Member not found');
         }
 
         if (!password_verify($password, $user['password'])) {
+            // Log failed attempt - wrong password
+            $security = new \App\Libraries\SecurityMonitor();
+            $security->logFailedLogin($identifier, 'member');
             return $this->fail('Invalid password');
         }
 

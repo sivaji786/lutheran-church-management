@@ -17,9 +17,6 @@ export default defineConfig({
       'next-themes@0.4.6': 'next-themes',
       'lucide-react@0.487.0': 'lucide-react',
       'input-otp@1.4.2': 'input-otp',
-      'figma:asset/cb62bf54b7de9505972ebdfad3d2079da122b5b8.png': path.resolve(__dirname, './src/assets/cb62bf54b7de9505972ebdfad3d2079da122b5b8.png'),
-      'figma:asset/5792e856707a6a5bc581ec9f97e87706b70ae1d9.png': path.resolve(__dirname, './src/assets/5792e856707a6a5bc581ec9f97e87706b70ae1d9.png'),
-      'figma:asset/2079d46a4c46beb7f537f94c35116f23e2f3d80b.png': path.resolve(__dirname, './src/assets/2079d46a4c46beb7f537f94c35116f23e2f3d80b.png'),
       'embla-carousel-react@8.6.0': 'embla-carousel-react',
       'cmdk@1.1.1': 'cmdk',
       'class-variance-authority@0.7.1': 'class-variance-authority',
@@ -55,6 +52,42 @@ export default defineConfig({
   build: {
     target: 'esnext',
     outDir: 'build',
+    // Optimize chunk sizes
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        // Manual chunk splitting for better caching
+        manualChunks: {
+          // Vendor chunks
+          'react-vendor': ['react', 'react-dom'],
+          'ui-vendor': [
+            '@radix-ui/react-dialog',
+            '@radix-ui/react-dropdown-menu',
+            '@radix-ui/react-select',
+            '@radix-ui/react-tabs',
+            '@radix-ui/react-popover',
+            '@radix-ui/react-label',
+          ],
+          'chart-vendor': ['recharts'],
+          'utils-vendor': ['lucide-react', 'sonner', 'class-variance-authority', 'clsx', 'tailwind-merge'],
+          'excel-vendor': ['xlsx'],
+        },
+        // Optimize asset file names
+        chunkFileNames: 'assets/js/[name]-[hash].js',
+        entryFileNames: 'assets/js/[name]-[hash].js',
+        assetFileNames: 'assets/[ext]/[name]-[hash].[ext]',
+      },
+    },
+    // Enable minification
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true, // Remove console.logs in production
+        drop_debugger: true,
+      },
+    },
+    // Source maps for debugging (disable in production for smaller bundle)
+    sourcemap: false,
   },
   server: {
     port: 3000,

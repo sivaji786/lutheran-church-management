@@ -216,12 +216,32 @@ class Offerings extends BaseController
 
         $offerings = $builder->orderBy('date', 'desc')->get()->getResultArray();
 
-        // Calculate statistics
+        // Calculate statistics directly
         $db = \Config\Database::connect();
-        $query = $db->query("CALL sp_member_offering_stats(?)", [$memberId]);
-        $stats = $query->getRowArray();
-        $query->freeResult();
         
+        // Get total contributions and count
+        $statsQuery = $db->query("
+            SELECT 
+                COALESCE(SUM(amount), 0) as total_contributions,
+                COALESCE(AVG(amount), 0) as average_contribution,
+                COUNT(*) as total_offerings,
+                MAX(date) as last_offering_date
+            FROM offerings 
+            WHERE member_id = ?
+        ", [$memberId]);
+        $stats = $statsQuery->getRowArray();
+        
+        // Get this month's total
+        $thisMonthQuery = $db->query("
+            SELECT COALESCE(SUM(amount), 0) as this_month_total
+            FROM offerings 
+            WHERE member_id = ? 
+            AND YEAR(date) = YEAR(CURDATE()) 
+            AND MONTH(date) = MONTH(CURDATE())
+        ", [$memberId]);
+        $thisMonthData = $thisMonthQuery->getRowArray();
+        
+        // Get offerings by type
         $offeringsByType = $db->query("
             SELECT offer_type, SUM(amount) as total 
             FROM offerings 
@@ -242,7 +262,7 @@ class Offerings extends BaseController
                     'totalContributions' => (float)($stats['total_contributions'] ?? 0),
                     'averageContribution' => (float)($stats['average_contribution'] ?? 0),
                     'totalOfferings' => (int)($stats['total_offerings'] ?? 0),
-                    'thisMonthTotal' => (float)($stats['this_month_total'] ?? 0),
+                    'thisMonthTotal' => (float)($thisMonthData['this_month_total'] ?? 0),
                     'lastOfferingDate' => $stats['last_offering_date'] ?? null,
                     'offeringsByType' => $offeringsByTypeMap
                 ]
