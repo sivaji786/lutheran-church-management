@@ -172,6 +172,7 @@ class Members extends BaseController
         if (isset($data['residentialStatus'])) $data['residential_status'] = $data['residentialStatus'];
         if (isset($data['aadharNumber'])) $data['aadhar_number'] = $data['aadharNumber'];
         if (isset($data['memberStatus'])) $data['member_status'] = $data['memberStatus'];
+        if (isset($data['memberSerialNum'])) $data['member_serial_num'] = $data['memberSerialNum'];
         
         // Generate member code
         // Formula: "LCH" + "-" + "member_serial_number" + "-" +"family_id" (member_order)
@@ -189,11 +190,24 @@ class Members extends BaseController
             $serial = str_pad($serialNum, 4, '0', STR_PAD_LEFT);
             $data['member_code'] = "LCH-{$serial}-{$nextOrder}";
         } else {
-            // Fallback to stored procedure if serial number is missing
+            // Fallback: Generate next serial number if missing
             $db = \Config\Database::connect();
-            $query = $db->query("CALL sp_generate_member_code(@next_code)");
-            $result = $db->query("SELECT @next_code as member_code")->getRow();
-            $data['member_code'] = $result->member_code;
+            // Get highest serial number currently in use
+            $query = $db->query("
+                SELECT COALESCE(MAX(CAST(SUBSTRING(member_code, 5, 4) AS UNSIGNED)), 0) as last_serial 
+                FROM members 
+                WHERE member_code LIKE 'LCH%'
+            ");
+            $lastSerial = $query->getRow()->last_serial;
+            $nextSerial = $lastSerial + 1;
+            
+            // Since it's a new serial, order is 1
+            $nextOrder = 1;
+            $data['member_order'] = $nextOrder;
+            $data['member_serial_num'] = $nextSerial;
+            
+            $serialStr = str_pad($nextSerial, 4, '0', STR_PAD_LEFT);
+            $data['member_code'] = "LCH-{$serialStr}-{$nextOrder}";
         }
         
         // Hash password

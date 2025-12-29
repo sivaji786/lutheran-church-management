@@ -6,19 +6,19 @@ use CodeIgniter\Model;
 
 use App\Traits\UuidTrait;
 
-class AdminUserModel extends Model
+class TicketHistoryModel extends Model
 {
     use UuidTrait;
 
-    protected $table            = 'admin_users';
+    protected $table            = 'ticket_history';
     protected $primaryKey       = 'id';
     protected $useAutoIncrement = false;
     protected $returnType       = 'array';
     protected $useSoftDeletes   = false;
     protected $protectFields    = true;
     protected $allowedFields    = [
-        'id', 'username', 'password', 'role', 'name', 'email', 'mobile', 
-        'is_active', 'last_login', 'password_changed_at', 'failed_login_attempts', 'locked_until'
+        'id', 'ticket_id', 'action', 'old_status', 'new_status', 'notes',
+        'performed_by', 'performed_by_type', 'performed_by_name'
     ];
 
     protected bool $allowEmptyInserts = false;
@@ -28,10 +28,10 @@ class AdminUserModel extends Model
     protected array $castHandlers = [];
 
     // Dates
-    protected $useTimestamps = true;
+    protected $useTimestamps = false;
     protected $dateFormat    = 'datetime';
     protected $createdField  = 'created_at';
-    protected $updatedField  = 'updated_at';
+    protected $updatedField  = null; // No updated_at field in this table
     protected $deletedField  = 'deleted_at';
 
     // Validation
@@ -50,4 +50,6 @@ class AdminUserModel extends Model
     protected $afterFind      = [];
     protected $beforeDelete   = [];
     protected $afterDelete    = [];
+
+
 }

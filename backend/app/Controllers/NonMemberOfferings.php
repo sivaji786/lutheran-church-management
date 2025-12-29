@@ -252,55 +252,45 @@ class NonMemberOfferings extends BaseController
         $db = \Config\Database::connect();
         
         try {
-            // Call stored procedure
-            $query = $db->query("CALL sp_non_member_offering_stats()");
-            
-            // Get overall statistics (first result set)
-            $overallStats = $query->getRowArray();
-            
-            // For CodeIgniter 4, we need to use mysqli directly for multiple result sets
-            $mysqli = $db->connID;
-            
-            // Move to next result set
-            if ($mysqli->more_results()) {
-                $mysqli->next_result();
-            }
-            
-            // Get breakdown by offer type (second result set)
-            $query2 = $db->query("SELECT 1"); // Dummy query to get new result
-            $offeringsByType = [];
-            if ($mysqli->more_results()) {
-                $mysqli->next_result();
-                $result = $mysqli->store_result();
-                if ($result) {
-                    while ($row = $result->fetch_assoc()) {
-                        $offeringsByType[] = $row;
-                    }
-                    $result->free();
-                }
-            }
-            
-            // Get breakdown by payment mode (third result set)
-            $offeringsByPaymentMode = [];
-            if ($mysqli->more_results()) {
-                $mysqli->next_result();
-                $result = $mysqli->store_result();
-                if ($result) {
-                    while ($row = $result->fetch_assoc()) {
-                        $offeringsByPaymentMode[] = $row;
-                    }
-                    $result->free();
-                }
-            }
-            
-            // Clear any remaining results
-            while ($mysqli->more_results()) {
-                $mysqli->next_result();
-                if ($result = $mysqli->store_result()) {
-                    $result->free();
-                }
-            }
-            
+            // Overall statistics
+            $overallStatsQuery = $db->query("
+                SELECT
+                    COUNT(*) as total_offerings,
+                    SUM(amount) as total_amount,
+                    AVG(amount) as average_amount,
+                    SUM(CASE WHEN YEAR(date) = YEAR(CURDATE()) THEN amount ELSE 0 END) as this_year_total,
+                    SUM(CASE WHEN YEAR(date) = YEAR(CURDATE()) AND MONTH(date) = MONTH(CURDATE()) THEN amount ELSE 0 END) as this_month_total,
+                    MIN(date) as first_offering_date,
+                    MAX(date) as last_offering_date
+                FROM non_member_offerings
+            ");
+            $overallStats = $overallStatsQuery->getRowArray();
+
+            // Breakdown by offer type
+            $byTypeQuery = $db->query("
+                SELECT
+                    offer_type,
+                    COUNT(*) as count,
+                    SUM(amount) as total_amount,
+                    AVG(amount) as average_amount
+                FROM non_member_offerings
+                GROUP BY offer_type
+                ORDER BY total_amount DESC
+            ");
+            $offeringsByType = $byTypeQuery->getResultArray();
+
+            // Breakdown by payment mode
+            $byModeQuery = $db->query("
+                SELECT
+                    payment_mode,
+                    COUNT(*) as count,
+                    SUM(amount) as total_amount
+                FROM non_member_offerings
+                GROUP BY payment_mode
+                ORDER BY total_amount DESC
+            ");
+            $offeringsByPaymentMode = $byModeQuery->getResultArray();
+
             // Transform data for frontend
             $offeringsByTypeMap = [];
             foreach ($offeringsByType as $item) {

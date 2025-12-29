@@ -4,8 +4,12 @@ namespace App\Models;
 
 use CodeIgniter\Model;
 
+use App\Traits\UuidTrait;
+
 class MemberModel extends Model
 {
+    use UuidTrait;
+
     protected $table            = 'members';
     protected $primaryKey       = 'id';
     protected $useAutoIncrement = false;
@@ -42,7 +46,7 @@ class MemberModel extends Model
 
     // Callbacks
     protected $allowCallbacks = true;
-    protected $beforeInsert   = ['generateID'];
+    protected $beforeInsert   = ['generateUuid'];
     protected $afterInsert    = [];
     protected $beforeUpdate   = [];
     protected $afterUpdate    = [];
@@ -51,23 +55,5 @@ class MemberModel extends Model
     protected $beforeDelete   = [];
     protected $afterDelete    = [];
 
-    protected function generateID(array $data)
-    {
-        if (!isset($data['data']['id'])) {
-            $data['data']['id'] = $this->uuid();
-        }
-        return $data;
-    }
 
-    protected function uuid()
-    {
-        return sprintf(
-            '%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
-            mt_rand(0, 0xffff), mt_rand(0, 0xffff),
-            mt_rand(0, 0xffff),
-            mt_rand(0, 0x0fff) | 0x4000,
-            mt_rand(0, 0x3fff) | 0x8000,
-            mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff)
-        );
-    }
 }

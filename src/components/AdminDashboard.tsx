@@ -38,15 +38,22 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
 
   // Data State
   const [members, setMembers] = useState<Member[]>([]);
+  const [allMembers, setAllMembers] = useState<Member[]>([]); // For dropdowns
   const [totalMembersRecords, setTotalMembersRecords] = useState(0);
   const [offerings, setOfferings] = useState<Offering[]>([]);
   const [totalOfferingsRecords, setTotalOfferingsRecords] = useState(0);
   const [tickets, setTickets] = useState<TicketType[]>([]);
   const [totalTicketsRecords, setTotalTicketsRecords] = useState(0);
 
-  // "All" data for charts and forms (lookup lists)
-  const [allMembers, setAllMembers] = useState<Member[]>([]);
-  const [allOfferings, setAllOfferings] = useState<Offering[]>([]);
+  // Dashboard Stats & Charts Data
+  const [dashboardStats, setDashboardStats] = useState({
+    members: { total: 0, confirmed: 0, newThisMonth: 0, todayBirthdays: 0 },
+    offerings: { total: 0, totalAmount: 0, thisMonthTotal: 0 },
+    tickets: { open: 0 },
+    recentMembers: [] as Member[],
+    recentOfferings: [] as Offering[],
+    charts: { members: [], offerings: [] } as any
+  });
 
   // Restore dashboard state from localStorage
   useEffect(() => {
@@ -54,20 +61,19 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     if (savedMenu) {
       setCurrentMenu(savedMenu);
     }
-    // Initial fetch for charts and lookups
-    fetchAllData();
+    // Initial fetch for dashboard stats
+    fetchDashboardStats();
   }, []);
 
-  const fetchAllData = async () => {
+  const fetchDashboardStats = async () => {
     try {
-      const [membersRes, offeringsRes] = await Promise.all([
-        apiClient.getMembers({ limit: 10000 }),
-        apiClient.getOfferings({ limit: 10000 })
-      ]);
-      if (membersRes.success) setAllMembers(membersRes.data.members || []);
-      if (offeringsRes.success) setAllOfferings(offeringsRes.data.offerings || []);
+      const response = await apiClient.getDashboardStats();
+      if (response.success && response.data) {
+        setDashboardStats(response.data);
+      }
     } catch (error) {
-      console.error('Error fetching initial data:', error);
+      console.error('Error fetching dashboard stats:', error);
+      toast.error('Failed to load dashboard statistics');
     }
   };
 
@@ -82,6 +88,22 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       toast.error('Failed to fetch members');
     }
   }, []);
+
+  // Fetch all members for dropdowns
+  const fetchAllMembers = useCallback(async () => {
+    // Only fetch if we haven't already or if we need a refresh
+    if (allMembers.length > 0) return;
+
+    try {
+      // Fetch with a high limit to get all members
+      const response = await apiClient.getMembers({ limit: 2000, memberStatus: 'confirmed' });
+      if (response.success) {
+        setAllMembers(response.data.members || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch all members for dropdown:', error);
+    }
+  }, [allMembers.length]);
 
   const fetchOfferings = useCallback(async (filters: OfferingFilters) => {
     try {
@@ -113,7 +135,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       const response = await apiClient.createMember(member);
       if (response.success && response.data) {
         toast.success(`Member added successfully! Code: ${response.data.memberCode}`);
-        fetchAllData(); // Refresh lookup list
+        fetchDashboardStats(); // Refresh stats
         return response.data;
       }
       return null;
@@ -128,7 +150,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       const response = await apiClient.createOffering(offering);
       if (response.success) {
         toast.success('Offering recorded successfully');
-        fetchAllData(); // Refresh charts
+        fetchDashboardStats(); // Refresh stats
         return true;
       }
       return false;
@@ -138,20 +160,23 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     }
   };
 
+  // Effect to fetch all members when entering add offering view
+  useEffect(() => {
+    if (currentMenu === 'offerings' && offeringsView === 'add') {
+      fetchAllMembers();
+    }
+  }, [currentMenu, offeringsView, fetchAllMembers]);
+
   const handleUpdateTicket = async (ticketId: string, status: TicketType['status'], adminNotes?: string) => {
     try {
-      // Update status
-      const statusResponse = await apiClient.updateTicketStatus(ticketId, status);
-
-      // Update admin notes if provided
-      if (adminNotes) {
-        await apiClient.updateTicket(ticketId, { adminNotes });
-      }
+      // Update status and notes
+      const statusResponse = await apiClient.updateTicketStatus(ticketId, status, adminNotes);
 
       if (statusResponse.success) {
         toast.success('Ticket updated successfully');
         // Refresh tickets list
         await fetchTickets({ page: 1, limit: 10, search: '', status: '', priority: '', category: '' });
+        fetchDashboardStats(); // Refresh stats
       }
     } catch (error) {
       toast.error('Failed to update ticket');
@@ -163,7 +188,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       const response = await apiClient.updateMemberStatus(memberId, status);
       if (response.success) {
         toast.success('Member status updated');
-        fetchAllData();
+        fetchDashboardStats(); // Refresh stats
       }
     } catch (error) {
       toast.error('Failed to update status');
@@ -186,7 +211,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       const response = await apiClient.updateMember(memberId, updatedData);
       if (response.success) {
         toast.success('Member updated successfully');
-        fetchAllData();
+        fetchDashboardStats(); // Refresh stats
         return true;
       }
       return false;
@@ -202,73 +227,23 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     setOfferingsView('add');
   };
 
-  const handleImportMembers = async (importedMembers: Member[]) => {
-    let successCount = 0;
-    let failCount = 0;
 
-    // Show initial message
-    toast.info(`Importing ${importedMembers.length} members...`);
 
-    try {
-      for (const member of importedMembers) {
-        try {
-          // Remove temporary ID if present
-          const { id, ...memberData } = member;
-          const response = await apiClient.createMember(memberData);
-          if (response.success) {
-            successCount++;
-          } else {
-            failCount++;
-          }
-        } catch (error) {
-          failCount++;
-        }
-      }
+  // Dashboard Stats
+  const {
+    members: memberStats,
+    offerings: offeringStats,
+    tickets: ticketStats,
+    recentMembers,
+    recentOfferings
+  } = dashboardStats;
 
-      if (successCount > 0) {
-        fetchAllData(); // Refresh all data
-      }
+  const totalMembers = memberStats.total;
+  const totalOfferings = offeringStats.totalAmount;
+  const thisMonthOfferings = offeringStats.thisMonthTotal;
+  const openTickets = ticketStats.open;
+  const todayBirthdays = memberStats.todayBirthdays;
 
-      if (failCount > 0) {
-        toast.error(`Failed to import ${failCount} members. Successfully imported ${successCount} members.`);
-      } else {
-        toast.success(`Successfully imported ${successCount} members`);
-      }
-    } catch (error) {
-      toast.error('Failed to import members');
-    }
-  };
-
-  // Dashboard Stats (calculated from "all" data for now)
-  const totalMembers = allMembers.length;
-  const totalOfferings = allOfferings.reduce((sum, offering) => sum + Number(offering.amount), 0);
-  const thisMonthOfferings = allOfferings.filter(o => {
-    const offeringDate = new Date(o.date);
-    const now = new Date();
-    return offeringDate.getMonth() === now.getMonth() &&
-      offeringDate.getFullYear() === now.getFullYear();
-  }).reduce((sum, offering) => sum + Number(offering.amount), 0);
-
-  // We need to fetch tickets for stats too? Or just use what we have?
-  // Tickets are usually fewer, so maybe we can fetch all tickets for stats?
-  // For now, let's just use the paginated tickets count if we are on dashboard, 
-  // but wait, we only fetch tickets when on tickets tab.
-  // So we should fetch stats separately or fetch all tickets initially too.
-  // Let's fetch all tickets initially for stats.
-  const [allTickets, setAllTickets] = useState<TicketType[]>([]);
-  useEffect(() => {
-    apiClient.getTickets({ limit: 10000 }).then(res => {
-      if (res.success) setAllTickets(res.data.tickets || []);
-    });
-  }, []);
-  const openTickets = allTickets.filter(t => t.status === 'Open').length;
-
-  // Calculate today's birthdays
-  const today = new Date();
-  const todayBirthdays = allMembers.filter(member => {
-    const dob = new Date(member.dateOfBirth);
-    return dob.getMonth() === today.getMonth() && dob.getDate() === today.getDate();
-  }).length;
 
   const menuItems = [
     { id: 'dashboard' as MenuItem, label: 'Dashboard', icon: LayoutDashboard },
@@ -279,6 +254,17 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   ];
 
   const handleMenuClick = (menuId: MenuItem) => {
+    // Optimization: Prevent redundant updates/fetches if already on the same view
+    if (currentMenu === menuId) {
+      if (menuId === 'members' && membersView === 'list' && !showBirthdayFilter) return;
+      if (menuId === 'offerings' && offeringsView === 'list') return;
+      if (menuId === 'tickets' && !selectedTicket) return;
+      if (['dashboard', 'nonMemberOfferings'].includes(menuId)) return;
+
+      // If we are in specific sub-views (like 'add' or 'detail'), we allow the click 
+      // to act as a "Reset" to the main list view, so we proceed below.
+    }
+
     setCurrentMenu(menuId);
     storage.set('admin_currentMenu', menuId);
     setSidebarOpen(false);
@@ -526,7 +512,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                 </Card>
 
                 {/* Charts */}
-                <DashboardCharts members={allMembers} offerings={allOfferings} />
+                <DashboardCharts chartData={dashboardStats.charts} />
 
                 {/* Recent Activity */}
                 <div className="grid lg:grid-cols-2 gap-6">
@@ -537,7 +523,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-4">
-                        {allMembers.slice(-3).reverse().map((member) => (
+                        {recentMembers.map((member) => (
                           <div key={member.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
                             <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white">
                               {member.name.charAt(0)}
@@ -569,7 +555,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-4">
-                        {allOfferings.slice(-3).reverse().map((offering) => (
+                        {recentOfferings.map((offering) => (
                           <div key={offering.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
                             <div>
                               <p className="text-slate-900">{offering.memberName}</p>
@@ -673,9 +659,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                       <CardContent className="pt-6">
                         <MembersTable
                           members={members}
-                          allMembers={allMembers}
                           totalRecords={totalMembersRecords}
-                          onImportMembers={handleImportMembers}
                           onMemberClick={async (member) => {
                             try {
                               const response = await apiClient.getMember(member.id!);
@@ -723,7 +707,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                             }
                             return success;
                           }}
-                          existingMembers={allMembers}
+                          existingMembers={[]} // Pass empty list as duplicate check should be server-side or on-demand
                         />
                       </CardContent>
                     </Card>
@@ -732,7 +716,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                 {membersView === 'detail' && selectedMember && (
                   <MemberDetailView
                     member={selectedMember}
-                    offerings={allOfferings.filter(o => o.memberId === selectedMember.id)}
+                    offerings={[]} // Need to fetch these on demand in the view or pass from server
                     onUpdateMemberStatus={handleUpdateMemberStatus}
                     onResetPassword={handleResetPassword}
                     onEditMember={() => setMembersView('edit')}
@@ -760,7 +744,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                   <EditMemberPage
                     member={selectedMember}
                     onUpdateMember={handleUpdateMember}
-                    existingMembers={allMembers}
+                    existingMembers={[]} // removed unused full list
                     onBack={() => {
                       setMembersView('list');
                       setSelectedMember(null);

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { storage } from '../utils/localStorage';
-import { DollarSign, Filter, Search, Download, ChevronLeft, ChevronRight, FileDown, Calendar, X } from 'lucide-react';
+import { DollarSign, Filter, Search, Download, ChevronLeft, ChevronRight, FileDown, X } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Badge } from './ui/badge';
 import { Card } from './ui/card';
@@ -37,7 +37,7 @@ export function OfferingsTable({ offerings, totalRecords, onFilterChange }: Offe
   const [dateFilterPreset, setDateFilterPreset] = useState<DateFilterPreset>('all');
   const [fromDate, setFromDate] = useState<string>('');
   const [toDate, setToDate] = useState<string>('');
-  const itemsPerPage: number = 10;
+  const [pageSize, setPageSize] = useState<number>(10);
 
   // Load persisted state from localStorage on mount
   useEffect(() => {
@@ -50,6 +50,7 @@ export function OfferingsTable({ offerings, totalRecords, onFilterChange }: Offe
       setDateFilterPreset(saved.dateFilterPreset ?? 'all');
       setFromDate(saved.fromDate ?? '');
       setToDate(saved.toDate ?? '');
+      setPageSize(saved.pageSize ?? 10);
     }
   }, []);
 
@@ -63,20 +64,21 @@ export function OfferingsTable({ offerings, totalRecords, onFilterChange }: Offe
       dateFilterPreset,
       fromDate,
       toDate,
+      pageSize,
     });
 
     const { from, to } = getDateRange(dateFilterPreset);
 
     onFilterChange({
       page: currentPage,
-      limit: itemsPerPage,
+      limit: pageSize,
       search: searchTerm,
       offerType: filterType,
       paymentMode: filterPaymentMode,
       startDate: from ? from.toISOString().split('T')[0] : undefined,
       endDate: to ? to.toISOString().split('T')[0] : undefined,
     });
-  }, [filterType, filterPaymentMode, searchTerm, currentPage, dateFilterPreset, fromDate, toDate]);
+  }, [filterType, filterPaymentMode, searchTerm, currentPage, dateFilterPreset, fromDate, toDate, pageSize]);
 
   const getDateRange = (preset: DateFilterPreset) => {
     const now = new Date();
@@ -113,14 +115,14 @@ export function OfferingsTable({ offerings, totalRecords, onFilterChange }: Offe
   };
 
   // Calculate pagination
-  const totalPages: number = Math.ceil(totalRecords / itemsPerPage);
-  const startIndex: number = (currentPage - 1) * itemsPerPage;
+  const totalPages: number = Math.ceil(totalRecords / pageSize);
+  const startIndex: number = (currentPage - 1) * pageSize;
   const endIndex: number = startIndex + offerings.length;
 
   // Reset to page 1 when filters or search change
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [filterType, filterPaymentMode, searchTerm, dateFilterPreset, fromDate, toDate]);
+  }, [filterType, filterPaymentMode, searchTerm, dateFilterPreset, fromDate, toDate, pageSize]);
 
   const totalAmount: number = offerings.reduce((sum: number, offering: Offering) => sum + Number(offering.amount), 0);
 
@@ -131,9 +133,10 @@ export function OfferingsTable({ offerings, totalRecords, onFilterChange }: Offe
       return;
     }
 
-    const headers = ['Date', 'Member Name', 'Offer Type', 'Amount (₹)', 'Payment Mode'];
+    const headers = ['Date', 'Member Code', 'Member Name', 'Offer Type', 'Amount (₹)', 'Payment Mode'];
     const csvData = offerings.map(offering => [
       new Date(offering.date).toLocaleDateString('en-IN'),
+      offering.memberCode || '',
       offering.memberName,
       offering.offerType,
       offering.amount.toString(),
@@ -170,6 +173,7 @@ export function OfferingsTable({ offerings, totalRecords, onFilterChange }: Offe
       // Prepare data for Excel
       const excelData = offerings.map(offering => ({
         'Date': new Date(offering.date).toLocaleDateString('en-IN'),
+        'Member Code': offering.memberCode || '',
         'Member Name': offering.memberName,
         'Offer Type': offering.offerType,
         'Amount (₹)': offering.amount,
@@ -182,6 +186,7 @@ export function OfferingsTable({ offerings, totalRecords, onFilterChange }: Offe
       // Set column widths
       worksheet['!cols'] = [
         { wch: 12 }, // Date
+        { wch: 12 }, // Member Code
         { wch: 25 }, // Member Name
         { wch: 20 }, // Offer Type
         { wch: 15 }, // Amount
@@ -383,6 +388,7 @@ export function OfferingsTable({ offerings, totalRecords, onFilterChange }: Offe
                 <TableRow className="bg-slate-50">
                   <TableHead className="w-12">#</TableHead>
                   <TableHead>Date</TableHead>
+                  <TableHead>Member Code</TableHead>
                   <TableHead>Member</TableHead>
                   <TableHead>Offer Type</TableHead>
                   <TableHead>Payment Mode</TableHead>
@@ -402,6 +408,7 @@ export function OfferingsTable({ offerings, totalRecords, onFilterChange }: Offe
                         year: 'numeric',
                       })}
                     </TableCell>
+                    <TableCell className="font-medium text-slate-700">{offering.memberCode}</TableCell>
                     <TableCell className="text-slate-900">{offering.memberName}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className="border-blue-200 text-blue-700">
@@ -431,6 +438,21 @@ export function OfferingsTable({ offerings, totalRecords, onFilterChange }: Offe
           <div className="flex flex-col sm:flex-row items-center gap-4">
             <div className="text-sm text-slate-600">
               Page {currentPage} of {totalPages}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-slate-600">Rows per page:</span>
+              <Select value={pageSize.toString()} onValueChange={(value: string) => setPageSize(Number(value))}>
+                <SelectTrigger className="w-16 h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="20">20</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="100">100</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="flex items-center gap-2">

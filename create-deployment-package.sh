@@ -57,8 +57,6 @@ cd ..
 # Create deployment directory structure
 echo -e "${YELLOW}[4/7] Creating deployment directory structure...${NC}"
 mkdir -p deployment/backend
-mkdir -p deployment/frontend
-mkdir -p deployment/database
 
 # Copy backend files
 echo -e "${YELLOW}[5/7] Copying backend files...${NC}"
@@ -70,6 +68,7 @@ rsync -av --exclude='vendor' \
     --exclude='writable/cache/*' \
     --exclude='writable/session/*' \
     --exclude='writable/uploads/*' \
+    --exclude='writable/debug/*' \
     backend/ deployment/backend/
 
 # Copy vendor directory separately (already optimized)
@@ -102,46 +101,6 @@ window.APP_CONFIG = {
 EOF
 
 echo -e "${GREEN}✓ Frontend files copied${NC}"
-
-# Copy database files (exclude setup scripts and extra docs)
-cp database/schema.sql deployment/database/
-if [ -f "database/seed.sql" ]; then
-    cp database/seed.sql deployment/database/
-fi
-
-echo -e "${GREEN}✓ Database files copied${NC}"
-
-# Skip copying unnecessary files to deployment root
-# (setup.sh, setup.bat, setup.ps1, INSTALL_*.md, etc. are not needed in production)
-
-# Create minimal database README
-cat > deployment/database/README.md << 'EOF'
-# Database Installation
-
-## Important: Manual Import Required
-
-You must manually import the database schema via phpMyAdmin **BEFORE** running the installer.
-
-### Steps:
-
-1. Login to cPanel
-2. Go to phpMyAdmin
-3. Create a new database (e.g., `lutheran_church`)
-4. Select the database from the left sidebar
-5. Click the **Import** tab
-6. Click **Choose File** and select `schema.sql`
-7. Click **Go** at the bottom
-8. Wait for "Import has been successfully finished" message
-9. (Optional) Import `seed.sql` for demo data
-
-### After Database Import:
-
-Navigate to `installer.php` in your browser to complete the installation.
-
-**Example:** `https://yourdomain.com/installer.php`
-EOF
-
-echo -e "${GREEN}✓ Database files copied${NC}"
 
 # Copy installer.php to deployment root
 echo "Copying installer.php..."
@@ -214,56 +173,12 @@ EOF
 
 # Create .htaccess for frontend in root
 cat > deployment/.htaccess << 'EOF'
-<IfModule mod_rewrite.c>
-  RewriteEngine On
-  RewriteBase /
-  RewriteRule ^index\.html$ - [L]
-  RewriteCond %{REQUEST_FILENAME} !-f
-  RewriteCond %{REQUEST_FILENAME} !-d
-  RewriteRule . /index.html [L]
-</IfModule>
+<FilesMatch ".(?:html|php)$">
+    SetHandler application/x-httpd-alt-php82
+</FilesMatch>
 
-# Security headers
-<IfModule mod_headers.c>
-  Header set X-Content-Type-Options "nosniff"
-  Header set X-Frame-Options "SAMEORIGIN"
-  Header set X-XSS-Protection "1; mode=block"
-</IfModule>
 EOF
 
-# Verify backend .htaccess exists
-if [ ! -f "deployment/backend/public/.htaccess" ]; then
-    echo -e "${YELLOW}Creating backend .htaccess...${NC}"
-    cat > deployment/backend/public/.htaccess << 'EOF'
-# Disable directory browsing
-Options -Indexes
-
-# CodeIgniter 4 Rewrite Rules
-<IfModule mod_rewrite.c>
-  RewriteEngine On
-  RewriteBase /
-  
-  # Redirect Trailing Slashes...
-  RewriteCond %{REQUEST_FILENAME} !-d
-  RewriteCond %{REQUEST_URI} (.+)/$
-  RewriteRule ^ %1 [L,R=301]
-  
-  # Rewrite "www.example.com -> example.com"
-  RewriteCond %{HTTPS} !=on
-  RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
-  RewriteRule ^ http://%1%{REQUEST_URI} [R=301,L]
-  
-  # Handle Front Controller...
-  RewriteCond %{REQUEST_FILENAME} !-f
-  RewriteCond %{REQUEST_FILENAME} !-d
-  RewriteRule ^(.*)$ index.php/$1 [L]
-</IfModule>
-
-<IfModule !mod_rewrite.c>
-  ErrorDocument 404 index.php
-</IfModule>
-EOF
-fi
 
 # Create the ZIP file
 echo -e "${YELLOW}[7/7] Creating deployment package...${NC}"

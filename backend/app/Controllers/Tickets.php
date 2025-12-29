@@ -6,6 +6,7 @@ use App\Controllers\BaseController;
 use CodeIgniter\API\ResponseTrait;
 use App\Models\TicketModel;
 use App\Models\MemberModel;
+use App\Models\TicketHistoryModel;
 
 class Tickets extends BaseController
 {
@@ -112,10 +113,12 @@ class Tickets extends BaseController
 
         // Generate ticket number
         $db = \Config\Database::connect();
-        $query = $db->query("CALL sp_generate_ticket_number(@next_ticket)");
-        $result = $db->query("SELECT @next_ticket as ticket_number")->getRow();
+        $query = $db->query("SELECT COALESCE(MAX(CAST(SUBSTRING(ticket_number, 2) AS UNSIGNED)), 0) as last_num FROM tickets WHERE ticket_number LIKE 'T%'");
+        $lastNum = $query->getRow()->last_num;
+        $nextNum = $lastNum + 1;
+        $ticketNumber = 'T' . str_pad($nextNum, 3, '0', STR_PAD_LEFT);
         
-        $data['ticket_number'] = $result->ticket_number;
+        $data['ticket_number'] = $ticketNumber;
         $data['member_id'] = $memberId;
         $data['member_name'] = $member['name'];
         $data['member_code'] = $member['member_code'];
@@ -136,9 +139,11 @@ class Tickets extends BaseController
         return $this->fail($model->errors());
     }
 
+
     public function update($id)
     {
         $model = new TicketModel();
+        $historyModel = new TicketHistoryModel();
         $ticket = $model->find($id);
 
         if (!$ticket) {
@@ -147,12 +152,52 @@ class Tickets extends BaseController
 
         $data = $this->request->getJSON(true);
         
+        // DEBUG: Log incoming data
+        log_message('debug', 'Ticket update request data: ' . json_encode($data));
+        
+        // Extract admin notes if provided
+        $adminNotes = $data['admin_notes'] ?? null;
+        
+        // DEBUG: Log admin notes
+        log_message('debug', 'Admin notes extracted: ' . ($adminNotes ?? 'NULL'));
+        
         // Don't allow updating certain fields
-        unset($data['id'], $data['ticket_number'], $data['member_id'], $data['member_name'], $data['member_code'], $data['created_date']);
+        unset($data['id'], $data['ticket_number'], $data['member_id'], $data['member_name'], 
+              $data['member_code'], $data['created_date'], $data['admin_notes']);
         
         $data['updated_date'] = date('Y-m-d');
 
+        // Update the ticket
         if ($model->update($id, $data)) {
+            // If admin notes provided, save to ticket history
+            if ($adminNotes && !empty(trim($adminNotes))) {
+                $session = session();
+                $adminUser = $session->get('user');
+                
+                // DEBUG: Log session data
+                log_message('debug', 'Admin user from session: ' . json_encode($adminUser));
+                
+                $historyData = [
+                    'ticket_id' => $id,
+                    'action' => 'Admin Response',
+                    'notes' => $adminNotes,
+                    'performed_by' => $adminUser['id'] ?? '00000000-0000-0000-0000-000000000000',
+                    'performed_by_type' => 'admin',
+                    'performed_by_name' => $adminUser['name'] ?? 'Admin'
+                ];
+                
+                // DEBUG: Log history data before insert
+                log_message('debug', 'Inserting history data: ' . json_encode($historyData));
+                
+                $result = $historyModel->insert($historyData);
+                
+                // DEBUG: Log insert result
+                log_message('debug', 'History insert result: ' . ($result ? 'SUCCESS' : 'FAILED'));
+                if (!$result) {
+                    log_message('error', 'History insert errors: ' . json_encode($historyModel->errors()));
+                }
+            }
+            
             $updated = $model->find($id);
             
             return $this->respond([
@@ -168,6 +213,7 @@ class Tickets extends BaseController
     public function updateStatus($id)
     {
         $model = new TicketModel();
+        $historyModel = new TicketHistoryModel();
         $ticket = $model->find($id);
 
         if (!$ticket) {
@@ -180,18 +226,49 @@ class Tickets extends BaseController
             return $this->fail('status is required');
         }
 
+        $newStatus = $data['status'];
+        $oldStatus = $ticket['status'];
+        // Support both camelCase (JSON) and snake_case
+        $adminNotes = $data['adminNotes'] ?? $data['admin_notes'] ?? null;
+
         $updateData = [
-            'status' => $data['status'],
+            'status' => $newStatus,
             'updated_date' => date('Y-m-d')
         ];
 
-        if ($data['status'] === 'Resolved') {
+        if ($adminNotes) {
+            $updateData['admin_notes'] = $adminNotes;
+        }
+
+        if ($newStatus === 'Resolved') {
             $updateData['resolved_date'] = date('Y-m-d');
-        } elseif ($data['status'] === 'Closed') {
+        } elseif ($newStatus === 'Closed') {
             $updateData['closed_date'] = date('Y-m-d');
         }
 
         if ($model->update($id, $updateData)) {
+            // Save to ticket history with admin notes if provided
+            $session = session();
+            $adminUser = $session->get('user');
+            
+            $action = 'Status Changed';
+            if ($adminNotes && !empty(trim($adminNotes))) {
+                $action = 'Status Changed with Response';
+            }
+            
+            $historyData = [
+                'ticket_id' => $id,
+                'action' => $action,
+                'old_status' => $oldStatus,
+                'new_status' => $newStatus,
+                'notes' => $adminNotes,
+                'performed_by' => $adminUser['id'] ?? '00000000-0000-0000-0000-000000000000',
+                'performed_by_type' => 'admin',
+                'performed_by_name' => $adminUser['name'] ?? 'Admin'
+            ];
+            
+            $historyModel->insert($historyData);
+            
             $updated = $model->find($id);
             
             return $this->respond([
@@ -202,5 +279,29 @@ class Tickets extends BaseController
         }
 
         return $this->fail($model->errors());
+    }
+
+    public function getHistory($id)
+    {
+        $historyModel = new TicketHistoryModel();
+        
+        // Verify ticket exists
+        $ticketModel = new TicketModel();
+        $ticket = $ticketModel->find($id);
+        
+        if (!$ticket) {
+            return $this->failNotFound('Ticket not found');
+        }
+        
+        // Fetch all history entries for this ticket, ordered by newest first
+        $history = $historyModel
+            ->where('ticket_id', $id)
+            ->orderBy('created_at', 'DESC')
+            ->findAll();
+        
+        return $this->respond([
+            'success' => true,
+            'data' => $history
+        ]);
     }
 }

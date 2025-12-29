@@ -46,6 +46,7 @@ export function OfferingForm({ members, onAddOffering, preSelectedMemberId }: Of
     const newOffering: Offering = {
       memberId: selectedMemberId,
       memberName: selectedMember.name,
+      memberCode: selectedMember.memberCode,
       date,
       amount: parseFloat(amount),
       offerType,

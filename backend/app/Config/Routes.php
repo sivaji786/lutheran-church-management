@@ -44,6 +44,7 @@ $routes->options('offerings/(:any)', $corsResponse);
 $routes->options('tickets', $corsResponse);
 $routes->options('tickets/(:any)', $corsResponse);
 $routes->options('tickets/(:any)/status', $corsResponse);
+$routes->options('tickets/(:any)/history', $corsResponse);
 $routes->options('non-member-offerings', $corsResponse);
 $routes->options('non-member-offerings/(:any)', $corsResponse);
 $routes->options('non-member-offerings/statistics', $corsResponse);
@@ -84,6 +85,7 @@ $routes->group('tickets', function($routes) {
     $routes->post('/', 'Tickets::create');
     $routes->put('(:segment)', 'Tickets::update/$1');
     $routes->patch('(:segment)/status', 'Tickets::updateStatus/$1');
+    $routes->get('(:segment)/history', 'Tickets::getHistory/$1');
 });
 
 // Non-Member Offerings

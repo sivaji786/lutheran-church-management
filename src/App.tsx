@@ -6,6 +6,8 @@ import { LoadingSpinner } from './components/LoadingSpinner';
 const AdminDashboard = lazy(() => import('./components/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
 const MemberDashboard = lazy(() => import('./components/MemberDashboard').then(m => ({ default: m.MemberDashboard })));
 const TicketDetailPage = lazy(() => import('./components/pages/TicketDetailPage').then(m => ({ default: m.TicketDetailPage })));
+const MemberLookupPage = lazy(() => import('./components/pages/MemberLookupPage').then(m => ({ default: m.MemberLookupPage })));
+
 import { apiClient } from './services/api';
 import { toast, Toaster } from 'sonner';
 
@@ -36,6 +38,7 @@ export type Offering = {
   id?: string;
   memberId: string;
   memberName: string;
+  memberCode: string;
   date: string;
   amount: number;
   offerType: string;
@@ -58,13 +61,26 @@ export type Ticket = {
   adminNotes?: string;
 };
 
+export type TicketHistory = {
+  id: string;
+  ticketId: string;
+  action: string;
+  oldStatus?: string;
+  newStatus?: string;
+  notes?: string;
+  performedBy: string;
+  performedByType: 'admin' | 'member';
+  performedByName: string;
+  createdAt: string;
+};
+
 export type User = {
   type: 'admin' | 'member';
   memberCode?: string;
   token?: string;
 };
 
-type Page = 'login' | 'ticketDetail';
+type Page = 'login' | 'ticketDetail' | 'lookup';
 
 function App() {
   const [currentPage, setCurrentPage] = useState<Page>('login');
@@ -75,30 +91,27 @@ function App() {
   const [offerings, setOfferings] = useState<Offering[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
 
-  const fetchData = async () => {
-    try {
-      const [membersRes, offeringsRes, ticketsRes] = await Promise.all([
-        apiClient.getMembers({ limit: 1000 }), // Fetch all members for now
-        apiClient.getOfferings({ limit: 1000 }), // Fetch all offerings
-        apiClient.getTickets({ limit: 1000 }) // Fetch all tickets
-      ]);
-
-      if (membersRes.success && membersRes.data.members) {
-        setMembers(membersRes.data.members);
+  // Check for search routing on mount and hash changes
+  useEffect(() => {
+    const handleHashChange = () => {
+      // Check hash for routing (e.g. /#/lookup)
+      const hash = window.location.hash;
+      if (hash === '#/lookup' || hash === '#lookup') {
+        setCurrentPage('lookup');
+      } else if (!hash || hash === '#/') {
+        // Also handle navigating back to login
+        if (!currentUser) setCurrentPage('login');
       }
+    };
 
-      if (offeringsRes.success && offeringsRes.data.offerings) {
-        setOfferings(offeringsRes.data.offerings);
-      }
+    // Check initial hash
+    handleHashChange();
 
-      if (ticketsRes.success && ticketsRes.data.tickets) {
-        setTickets(ticketsRes.data.tickets);
-      }
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      toast.error('Failed to load data. Please try again.');
-    }
-  };
+    // Listen for changes
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, [currentUser]);
+
 
   // Restore user session from localStorage on app load
   useEffect(() => {
@@ -109,55 +122,52 @@ function App() {
       apiClient.setToken(savedUser.token || '');
 
       // Fetch data based on user type
-      if (savedUser.type === 'admin') {
-        fetchData(); // Admin needs all data
-      } else {
-        // Member - fetch member record and their specific data
-        (async () => {
-          try {
-            const memberRes = await apiClient.getMembers({
-              search: savedUser.memberCode,
-              limit: 10
-            });
 
-            if (memberRes.success && memberRes.data.members) {
-              // Get the member ID to fetch their full details including family members
-              const member = memberRes.data.members.find(
-                (m: any) => m.memberCode === savedUser.memberCode
-              );
+      // Member - fetch member record and their specific data
+      (async () => {
+        try {
+          const memberRes = await apiClient.getMembers({
+            search: savedUser.memberCode,
+            limit: 10
+          });
 
-              if (member?.id) {
-                // Fetch full member details including family members
-                const memberDetailRes = await apiClient.getMember(member.id);
-                if (memberDetailRes.success && memberDetailRes.data) {
-                  const fullMemberData = memberDetailRes.data;
+          if (memberRes.success && memberRes.data.members) {
+            // Get the member ID to fetch their full details including family members
+            const member = memberRes.data.members.find(
+              (m: any) => m.memberCode === savedUser.memberCode
+            );
 
-                  // Set members array with the logged-in member and their family members
-                  if (fullMemberData.familyMembers && fullMemberData.familyMembers.length > 0) {
-                    setMembers(fullMemberData.familyMembers);
-                  } else {
-                    setMembers([fullMemberData]);
-                  }
-                }
+            if (member?.id) {
+              // Fetch full member details including family members
+              const memberDetailRes = await apiClient.getMember(member.id);
+              if (memberDetailRes.success && memberDetailRes.data) {
+                const fullMemberData = memberDetailRes.data;
 
-                // Fetch only this member's offerings using dedicated endpoint
-                const offeringsRes = await apiClient.getMemberOfferings(member.id);
-                if (offeringsRes.success && offeringsRes.data.offerings) {
-                  setOfferings(offeringsRes.data.offerings);
-                }
-
-                // Fetch only this member's tickets using memberId filter
-                const ticketsRes = await apiClient.getTickets({ memberId: member.id, limit: 1000 });
-                if (ticketsRes.success && ticketsRes.data.tickets) {
-                  setTickets(ticketsRes.data.tickets);
+                // Set members array with the logged-in member and their family members
+                if (fullMemberData.familyMembers && fullMemberData.familyMembers.length > 0) {
+                  setMembers(fullMemberData.familyMembers);
+                } else {
+                  setMembers([fullMemberData]);
                 }
               }
+
+              // Fetch only this member's offerings using dedicated endpoint
+              const offeringsRes = await apiClient.getMemberOfferings(member.id);
+              if (offeringsRes.success && offeringsRes.data.offerings) {
+                setOfferings(offeringsRes.data.offerings);
+              }
+
+              // Fetch only this member's tickets using memberId filter
+              const ticketsRes = await apiClient.getTickets({ memberId: member.id, limit: 1000 });
+              if (ticketsRes.success && ticketsRes.data.tickets) {
+                setTickets(ticketsRes.data.tickets);
+              }
             }
-          } catch (error) {
-            console.error('Error restoring session:', error);
           }
-        })();
-      }
+        } catch (error) {
+          console.error('Error restoring session:', error);
+        }
+      })();
     }
   }, []);
 
@@ -168,7 +178,7 @@ function App() {
     // Only fetch data needed for this user type
     if (user.type === 'admin') {
       // Admin needs all data
-      await fetchData();
+      // await fetchData(); 
     } else {
       // Member - fetch member record and their specific data
       try {
@@ -247,22 +257,31 @@ function App() {
 
   const updateTicket = async (ticketId: string, status: Ticket['status'], adminNotes?: string) => {
     try {
-      // First update status
-      const statusRes = await apiClient.updateTicketStatus(ticketId, status);
+      // Prepare update data - MUST include status even if not changed
+      const updateData: any = { status };
 
-      // If there are notes, we might need a separate update or the API handles it.
-      if (adminNotes) {
-        await apiClient.updateTicket(ticketId, { adminNotes });
+      // Add admin notes if provided
+      if (adminNotes && adminNotes.trim()) {
+        updateData.admin_notes = adminNotes;
       }
 
-      if (statusRes.success) {
+      // DEBUG: Log what we're sending
+      console.log('Updating ticket:', ticketId);
+      console.log('Update data:', updateData);
+      console.log('Admin notes:', adminNotes);
+
+      // Use PUT /tickets/:id endpoint (NOT /tickets/:id/status)
+      // This endpoint handles both status updates AND admin notes
+      const res = await apiClient.updateTicket(ticketId, updateData);
+
+      if (res.success) {
         const ticketsRes = await apiClient.getTickets({ limit: 1000 });
         if (ticketsRes.success && ticketsRes.data.tickets) {
           setTickets(ticketsRes.data.tickets);
         }
         toast.success('Ticket updated successfully');
       } else {
-        toast.error(statusRes.message || 'Failed to update ticket');
+        toast.error(res.message || 'Failed to update ticket');
       }
     } catch (error) {
       console.error('Error updating ticket:', error);
@@ -291,6 +310,18 @@ function App() {
     setSelectedTicket(null);
     // User stays in admin dashboard, just clears ticket detail view
   };
+
+  // 1. Check for Lookup Page specifically
+  if (currentPage === 'lookup') {
+    return (
+      <>
+        <Toaster position="top-right" richColors closeButton />
+        <Suspense fallback={<LoadingSpinner />}>
+          <MemberLookupPage />
+        </Suspense>
+      </>
+    );
+  }
 
   // If user is logged in, show dashboard
   if (currentUser) {

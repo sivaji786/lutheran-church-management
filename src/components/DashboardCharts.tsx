@@ -1,22 +1,23 @@
-import React, { useState, useMemo } from 'react';
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { useState, useMemo } from 'react';
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Label } from './ui/label';
-import { Member, Offering } from '../App';
-
-type DashboardChartsProps = {
-  members: Member[];
-  offerings: Offering[];
-};
 
 type TimePeriod = 'week' | 'month' | 'quarter' | 'year';
 
-export function DashboardCharts({ members, offerings }: DashboardChartsProps) {
+type DashboardChartsProps = {
+  chartData: {
+    members: { date: string; count: number }[];
+    offerings: { date: string; total: number }[];
+  };
+};
+
+export function DashboardCharts({ chartData }: DashboardChartsProps) {
   const [timePeriod, setTimePeriod] = useState<TimePeriod>('month');
 
-  // Calculate date range based on time period
-  const getDateRange = () => {
+  // Helper to filter data based on time period
+  const filterData = (data: any[], dateKey: string, valueKey: string) => {
     const now = new Date();
     const startDate = new Date();
 
@@ -35,8 +36,47 @@ export function DashboardCharts({ members, offerings }: DashboardChartsProps) {
         break;
     }
 
-    return { startDate, endDate: now };
+    // Filter data within range
+    const filtered = data.filter(item => {
+      const itemDate = new Date(item[dateKey]);
+      return itemDate >= startDate && itemDate <= now;
+    });
+
+    // Group by period for display
+    const dataMap = new Map<string, number>();
+
+    // Initialize all periods (optional, skipping for simplicity or can be added back if needed)
+    // For now, let's just map the filtered data to the display format
+
+    filtered.forEach(item => {
+      const itemDate = new Date(item[dateKey]);
+      let key: string;
+
+      if (timePeriod === 'week' || timePeriod === 'month') {
+        key = itemDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      } else {
+        key = itemDate.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+      }
+
+      const val = Number(item[valueKey]);
+      dataMap.set(key, (dataMap.get(key) || 0) + val);
+    });
+
+    // Sort keys if necessary, or just rely on input order (which is date sorted)
+    // Re-sorting by date might be needed if grouping changed order
+    return Array.from(dataMap.entries()).map(([name, value]) => ({
+      name,
+      [valueKey === 'count' ? 'members' : 'amount']: value
+    }));
   };
+
+  const memberData = useMemo(() => {
+    return filterData(chartData.members || [], 'date', 'count');
+  }, [chartData.members, timePeriod]);
+
+  const offeringsData = useMemo(() => {
+    return filterData(chartData.offerings || [], 'date', 'total');
+  }, [chartData.offerings, timePeriod]);
 
   // Get label based on time period
   const getTimeLabel = () => {
@@ -51,112 +91,6 @@ export function DashboardCharts({ members, offerings }: DashboardChartsProps) {
         return 'Last 12 Months';
     }
   };
-
-  // Process member registration data
-  const memberData = useMemo(() => {
-    const { startDate, endDate } = getDateRange();
-    const dataMap = new Map<string, number>();
-
-    // Initialize all dates with 0
-    const currentDate = new Date(startDate);
-    while (currentDate <= endDate) {
-      let key: string;
-
-      if (timePeriod === 'week') {
-        key = currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      } else if (timePeriod === 'month') {
-        key = currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      } else if (timePeriod === 'quarter' || timePeriod === 'year') {
-        key = currentDate.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-      } else {
-        key = currentDate.toLocaleDateString('en-US', { month: 'short' });
-      }
-
-      dataMap.set(key, 0);
-
-      // Increment based on period
-      if (timePeriod === 'week' || timePeriod === 'month') {
-        currentDate.setDate(currentDate.getDate() + 1);
-      } else {
-        currentDate.setMonth(currentDate.getMonth() + 1);
-      }
-    }
-
-    // Count members added in this period
-    members.forEach((member) => {
-      const registrationDate = new Date(member.registrationDate);
-
-      if (registrationDate >= startDate && registrationDate <= endDate) {
-        let key: string;
-
-        if (timePeriod === 'week' || timePeriod === 'month') {
-          key = registrationDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        } else {
-          key = registrationDate.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-        }
-
-        dataMap.set(key, (dataMap.get(key) || 0) + 1);
-      }
-    });
-
-    return Array.from(dataMap.entries()).map(([name, count]) => ({
-      name,
-      members: count,
-    }));
-  }, [members, timePeriod]);
-
-  // Process offerings data
-  const offeringsData = useMemo(() => {
-    const { startDate, endDate } = getDateRange();
-    const dataMap = new Map<string, number>();
-
-    // Initialize all dates with 0
-    const currentDate = new Date(startDate);
-    while (currentDate <= endDate) {
-      let key: string;
-
-      if (timePeriod === 'week') {
-        key = currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      } else if (timePeriod === 'month') {
-        key = currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      } else if (timePeriod === 'quarter' || timePeriod === 'year') {
-        key = currentDate.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-      } else {
-        key = currentDate.toLocaleDateString('en-US', { month: 'short' });
-      }
-
-      dataMap.set(key, 0);
-
-      // Increment based on period
-      if (timePeriod === 'week' || timePeriod === 'month') {
-        currentDate.setDate(currentDate.getDate() + 1);
-      } else {
-        currentDate.setMonth(currentDate.getMonth() + 1);
-      }
-    }
-
-    // Sum offerings
-    offerings.forEach((offering) => {
-      const offeringDate = new Date(offering.date);
-
-      if (offeringDate >= startDate && offeringDate <= endDate) {
-        let key: string;
-
-        if (timePeriod === 'week' || timePeriod === 'month') {
-          key = offeringDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        } else {
-          key = offeringDate.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-        }
-
-        dataMap.set(key, (dataMap.get(key) || 0) + Number(offering.amount));
-      }
-    });
-
-    return Array.from(dataMap.entries()).map(([name, amount]) => ({
-      name,
-      amount: amount,
-    }));
-  }, [offerings, timePeriod]);
 
   return (
     <div className="space-y-6">

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { storage } from '../utils/localStorage';
-import { User, Search, Download, Upload, ChevronLeft, ChevronRight, FileDown, FileUp, Filter, X, ArrowUpDown, ArrowUp, ArrowDown, Settings2, Eye, EyeOff, IndianRupee } from 'lucide-react';
+import { User, Search, ChevronLeft, ChevronRight, FileDown, FileUp, Filter, X, ArrowUpDown, ArrowUp, ArrowDown, Settings2, Eye, EyeOff, IndianRupee } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuItem } from './ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Badge } from './ui/badge';
@@ -21,36 +21,40 @@ export type MemberFilters = {
   residentialStatus: string;
   occupation: string;
   ward: string;
-  birthday: boolean;
+  birthday: string;
   sortBy: string;
   sortOrder: string;
 };
 
 type MembersTableProps = {
   members: Member[];
-  allMembers?: Member[];
   totalRecords: number;
-  onImportMembers?: (members: Member[]) => void;
   onMemberClick?: (member: Member) => void;
   onAddOffering?: (member: Member) => void;
   initialBirthdayFilter?: boolean;
   onFilterChange: (filters: MemberFilters) => void;
 };
 
-export function MembersTable({ members, allMembers, totalRecords, onImportMembers, onMemberClick, onAddOffering, initialBirthdayFilter, onFilterChange }: MembersTableProps) {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [baptismFilter, setBaptismFilter] = useState<string>('all');
-  const [confirmationFilter, setConfirmationFilter] = useState<string>('all');
-  const [maritalFilter, setMaritalFilter] = useState<string>('all');
-  const [residentialFilter, setResidentialFilter] = useState<string>('all');
-  const [occupationFilter, setOccupationFilter] = useState<string>('all');
-  const [wardFilter, setWardFilter] = useState<string>('all');
-  const [birthdayFilter, setBirthdayFilter] = useState<boolean>(initialBirthdayFilter || false);
-  const [showFilters, setShowFilters] = useState(initialBirthdayFilter || false);
-  const [sortColumn, setSortColumn] = useState<string>('created_at');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-  const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>({
+export function MembersTable({ members, totalRecords, onMemberClick, onAddOffering, initialBirthdayFilter, onFilterChange }: MembersTableProps) {
+  // Initialize state from localStorage or defaults
+  const getInitialState = (key: string, defaultValue: any) => {
+    const saved = storage.get('members_state') as any;
+    return saved && saved[key] !== undefined ? saved[key] : defaultValue;
+  };
+
+  const [searchTerm, setSearchTerm] = useState(() => getInitialState('searchTerm', ''));
+  const [currentPage, setCurrentPage] = useState(() => getInitialState('currentPage', 1));
+  const [baptismFilter, setBaptismFilter] = useState<string>(() => getInitialState('baptismFilter', 'all'));
+  const [confirmationFilter, setConfirmationFilter] = useState<string>(() => getInitialState('confirmationFilter', 'all'));
+  const [maritalFilter, setMaritalFilter] = useState<string>(() => getInitialState('maritalFilter', 'all'));
+  const [residentialFilter, setResidentialFilter] = useState<string>(() => getInitialState('residentialFilter', 'all'));
+  const [occupationFilter, setOccupationFilter] = useState<string>(() => getInitialState('occupationFilter', 'all'));
+  const [wardFilter, setWardFilter] = useState<string>(() => getInitialState('wardFilter', 'all'));
+  const [birthdayFilter, setBirthdayFilter] = useState<string>(() => getInitialState('birthdayFilter', initialBirthdayFilter ? 'yes' : 'all'));
+  const [showFilters, setShowFilters] = useState(() => getInitialState('showFilters', initialBirthdayFilter || false));
+  const [sortColumn, setSortColumn] = useState<string>(() => getInitialState('sortColumn', 'created_at'));
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(() => getInitialState('sortDirection', 'desc'));
+  const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(() => getInitialState('visibleColumns', {
     serialNo: true,
     memberCode: true,
     fullName: true,
@@ -64,36 +68,15 @@ export function MembersTable({ members, allMembers, totalRecords, onImportMember
     mobile: true,
     ward: true,
     remarks: true,
-  });
-  const itemsPerPage = 10;
-
-  // Load persisted state from localStorage on mount
-  useEffect(() => {
-    const saved: any = storage.get('members_state');
-    if (saved) {
-      setSearchTerm(saved.searchTerm ?? '');
-      setCurrentPage(saved.currentPage ?? 1);
-      setBaptismFilter(saved.baptismFilter ?? 'all');
-      setConfirmationFilter(saved.confirmationFilter ?? 'all');
-      setMaritalFilter(saved.maritalFilter ?? 'all');
-      setResidentialFilter(saved.residentialFilter ?? 'all');
-      setOccupationFilter(saved.occupationFilter ?? 'all');
-      setWardFilter(saved.wardFilter ?? 'all');
-      setBirthdayFilter(saved.birthdayFilter ?? false);
-      setShowFilters(saved.showFilters ?? false);
-      setSortColumn(saved.sortColumn ?? 'created_at');
-      setSortDirection(saved.sortDirection ?? 'desc');
-      if (saved.visibleColumns) {
-        setVisibleColumns(saved.visibleColumns);
-      }
-    }
-  }, []);
+  }));
+  const [pageSize, setPageSize] = useState(() => getInitialState('pageSize', 10));
 
   // Persist state to localStorage and notify parent whenever it changes
   useEffect(() => {
     storage.set('members_state', {
       searchTerm,
       currentPage,
+      pageSize,
       baptismFilter,
       confirmationFilter,
       maritalFilter,
@@ -109,7 +92,7 @@ export function MembersTable({ members, allMembers, totalRecords, onImportMember
 
     onFilterChange({
       page: currentPage,
-      limit: itemsPerPage,
+      limit: pageSize,
       search: searchTerm,
       baptismStatus: baptismFilter,
       confirmationStatus: confirmationFilter,
@@ -121,11 +104,13 @@ export function MembersTable({ members, allMembers, totalRecords, onImportMember
       sortBy: sortColumn,
       sortOrder: sortDirection,
     });
-  }, [searchTerm, currentPage, baptismFilter, confirmationFilter, maritalFilter, residentialFilter, occupationFilter, wardFilter, birthdayFilter, showFilters, sortColumn, sortDirection]);
+  }, [searchTerm, currentPage, pageSize, baptismFilter, confirmationFilter, maritalFilter, residentialFilter, occupationFilter, wardFilter, birthdayFilter, showFilters, sortColumn, sortDirection]);
+
+
 
   // Check if any filters are active
   const hasActiveFilters = baptismFilter !== 'all' || confirmationFilter !== 'all' ||
-    maritalFilter !== 'all' || residentialFilter !== 'all' || occupationFilter !== 'all' || wardFilter !== 'all' || birthdayFilter || searchTerm !== '';
+    maritalFilter !== 'all' || residentialFilter !== 'all' || occupationFilter !== 'all' || wardFilter !== 'all' || (birthdayFilter !== 'all' && birthdayFilter !== 'no') || searchTerm !== '';
 
   // Clear all filters
   const clearFilters = () => {
@@ -135,7 +120,9 @@ export function MembersTable({ members, allMembers, totalRecords, onImportMember
     setResidentialFilter('all');
     setOccupationFilter('all');
     setWardFilter('all');
-    setBirthdayFilter(false);
+    setWardFilter('all');
+    setBirthdayFilter('all');
+    setSearchTerm('');
     setSearchTerm('');
     setCurrentPage(1);
     setSortColumn('created_at');
@@ -143,162 +130,149 @@ export function MembersTable({ members, allMembers, totalRecords, onImportMember
   };
 
   // Calculate pagination
-  const totalPages = Math.ceil(totalRecords / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
+  const totalPages = Math.ceil(totalRecords / pageSize);
+  const startIndex = (currentPage - 1) * pageSize;
   const endIndex = startIndex + members.length;
 
-  // Reset to page 1 when search changes
+  // Reset to page 1 when search or page size changes
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm]);
+  }, [searchTerm, pageSize]);
 
-  // Helper to filter members for export
-  const getFilteredMembers = () => {
-    const sourceMembers = allMembers || members;
 
-    return sourceMembers.filter(member => {
-      // Search Term
-      if (searchTerm) {
-        const searchLower = searchTerm.toLowerCase();
-        const matchesSearch =
-          member.name.toLowerCase().includes(searchLower) ||
-          member.memberCode.toLowerCase().includes(searchLower) ||
-          member.mobile.includes(searchTerm) ||
-          member.name.toLowerCase().includes(searchLower) ||
-          member.memberCode.toLowerCase().includes(searchLower) ||
-          member.mobile.includes(searchTerm) ||
-          member.occupation.toLowerCase().includes(searchLower) ||
-          (member.memberSerialNum && member.memberSerialNum.toString().includes(searchTerm)) ||
-          member.aadharNumber.includes(searchTerm);
-
-        if (!matchesSearch) return false;
-      }
-
-      // Baptism Status
-      if (baptismFilter !== 'all') {
-        const isBaptized = baptismFilter === 'yes';
-        if (member.baptismStatus !== isBaptized) return false;
-      }
-
-      // Confirmation Status
-      if (confirmationFilter !== 'all') {
-        const isConfirmed = confirmationFilter === 'confirmed';
-        if (member.confirmationStatus !== isConfirmed) return false;
-      }
-
-      // Marital Status
-      if (maritalFilter !== 'all') {
-        const isMarried = maritalFilter === 'married';
-        if (member.maritalStatus !== isMarried) return false;
-      }
-
-      // Residential Status
-      if (residentialFilter !== 'all') {
-        const isResident = residentialFilter === 'resident';
-        if (member.residentialStatus !== isResident) return false;
-      }
-
-      // Occupation Filter
-      if (occupationFilter !== 'all') {
-        if (member.occupation !== occupationFilter) return false;
-      }
-
-      // Ward Filter
-      if (wardFilter !== 'all') {
-        if (member.ward !== wardFilter) return false;
-      }
-
-      // Birthday Filter
-      if (birthdayFilter) {
-        const today = new Date();
-        const dob = new Date(member.dateOfBirth);
-        if (dob.getMonth() !== today.getMonth() || dob.getDate() !== today.getDate()) return false;
-      }
-
-      return true;
-    });
-  };
 
   // Export to CSV
-  const handleExportCSV = () => {
-    const membersToExport = getFilteredMembers();
+  const handleExportCSV = async () => {
+    try {
+      toast.info('Preparing export...', { duration: 2000 });
 
-    if (membersToExport.length === 0) {
-      toast.error('No members to export');
-      return;
+      // Construct current filters
+      const exportFilters: any = {
+        limit: 10000, // Fetch up to 10k for export
+        search: searchTerm,
+        baptismStatus: baptismFilter === 'all' ? undefined : baptismFilter,
+        confirmationStatus: confirmationFilter === 'all' ? undefined : confirmationFilter,
+        maritalStatus: maritalFilter === 'all' ? undefined : maritalFilter,
+        residentialStatus: residentialFilter === 'all' ? undefined : residentialFilter,
+        occupation: occupationFilter === 'all' ? undefined : occupationFilter,
+        ward: wardFilter === 'all' ? undefined : wardFilter,
+        birthday: (birthdayFilter === 'yes') ? true : undefined,
+      };
+
+      // Fetch all members for export with current filters
+      // Note: We need access to apiClient here. Assuming it interprets this file as a component where apiClient is available or imported.
+      // If apiClient is not imported, we need to import it. It seems specific API calls are passed as props, but for export we might need direct access or a new prop.
+      // However, previous attempts used apiClient. Since it's not in props, let's assume we need to import it.
+      // Checking imports.. 'apiClient' is not imported in this file currently. 
+      // We should probably add `onExport` prop instead of direct API call if we want to keep it pure, 
+      // OR import apiClient. Given the previous plan was to use apiClient, I will import it.
+
+      const { apiClient } = await import('../services/api'); // Dynamic import to avoid circular dep if any, or just import at top. 
+      // Actually standard import is better. I will add import at top later if needed. Use dynamic for now to be safe in this block.
+
+      const response = await apiClient.getMembers(exportFilters);
+      const membersToExport = response.success && response.data.members ? response.data.members : [];
+
+      if (membersToExport.length === 0) {
+        toast.error('No members to export');
+        return;
+      }
+
+      const headers = [
+        'Serial No',
+        'Member Code',
+        'Full Name',
+        'Occupation',
+        'Date of Birth',
+        'Baptism Status',
+        'Confirmation Status',
+        'Marital Status',
+        'Residential Status',
+        'Aadhar Number',
+        'Mobile Number',
+        'Address',
+        'Area',
+        'Ward',
+        'Registration Date',
+        'Member Status',
+        'Remarks'
+      ];
+
+      const csvData = membersToExport.map((member: Member) => [
+        member.memberSerialNum ? member.memberSerialNum.toString().padStart(4, '0') : '',
+        member.memberCode,
+        member.name,
+        member.occupation,
+        member.dateOfBirth,
+        member.baptismStatus ? 'Yes' : 'No',
+        member.confirmationStatus ? 'Confirmed' : 'Not Confirmed',
+        member.maritalStatus ? 'Married' : 'Unmarried',
+        member.residentialStatus ? 'Resident' : 'Non-Resident',
+        member.aadharNumber,
+        member.mobile,
+        member.address,
+        member.area,
+        member.ward,
+        member.registrationDate,
+        member.memberStatus,
+        member.remarks
+      ]);
+
+      const csvContent = [
+        headers.join(','),
+        ...csvData.map((row: string[]) => row.map((cell: string) => `"${cell}"`).join(','))
+      ].join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `members_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast.success(`Exported ${membersToExport.length} members to CSV`);
+    } catch (error) {
+      console.error('Export failed:', error);
+      toast.error('Failed to export data');
     }
-
-    const headers = [
-      'Serial No',
-      'Member Code',
-      'Full Name',
-      'Occupation',
-      'Date of Birth',
-      'Baptism Status',
-      'Confirmation Status',
-      'Marital Status',
-      'Residential Status',
-      'Aadhar Number',
-      'Mobile Number',
-      'Address',
-      'Area',
-      'Ward',
-      'Registration Date',
-      'Member Status',
-      'Remarks'
-    ];
-
-    const csvData = membersToExport.map(member => [
-      member.memberSerialNum ? member.memberSerialNum.toString().padStart(4, '0') : '',
-      member.memberCode,
-      member.name,
-      member.occupation,
-      member.dateOfBirth,
-      member.baptismStatus ? 'Yes' : 'No',
-      member.confirmationStatus ? 'Confirmed' : 'Not Confirmed',
-      member.maritalStatus ? 'Married' : 'Unmarried',
-      member.residentialStatus ? 'Resident' : 'Non-Resident',
-      member.aadharNumber,
-      member.mobile,
-      member.address,
-      member.area,
-      member.ward,
-      member.registrationDate,
-      member.memberStatus,
-      member.remarks
-    ]);
-
-    const csvContent = [
-      headers.join(','),
-      ...csvData.map(row => row.map(cell => `"${cell}"`).join(','))
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `members_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    toast.success(`Exported ${membersToExport.length} members to CSV`);
   };
 
   // Export to Excel (.xlsx)
-  const handleExportExcel = () => {
-    const membersToExport = getFilteredMembers();
+  const handleExportExcel = async () => {
+    try {
+      toast.info('Preparing export...', { duration: 2000 });
 
-    if (membersToExport.length === 0) {
-      toast.error('No members to export');
-      return;
-    }
+      const { apiClient } = await import('../services/api');
 
-    // Dynamic import of xlsx library
-    import('xlsx').then((XLSX) => {
+      // Construct current filters for export
+      const exportFilters: any = {
+        limit: 10000,
+        search: searchTerm,
+        baptismStatus: baptismFilter === 'all' ? undefined : baptismFilter,
+        confirmationStatus: confirmationFilter === 'all' ? undefined : confirmationFilter,
+        maritalStatus: maritalFilter === 'all' ? undefined : maritalFilter,
+        residentialStatus: residentialFilter === 'all' ? undefined : residentialFilter,
+        occupation: occupationFilter === 'all' ? undefined : occupationFilter,
+        ward: wardFilter === 'all' ? undefined : wardFilter,
+        birthday: (birthdayFilter === 'yes') ? true : undefined,
+      };
+
+      const response = await apiClient.getMembers(exportFilters);
+      const membersToExport = response.success && response.data.members ? response.data.members : [];
+
+      if (membersToExport.length === 0) {
+        toast.error('No members to export');
+        return;
+      }
+
+      // Dynamic import of xlsx library
+      const XLSX = await import('xlsx');
+
       // Prepare data for Excel
-      const excelData = membersToExport.map(member => ({
+      const excelData = membersToExport.map((member: any) => ({
         'Serial No': member.memberSerialNum ? member.memberSerialNum.toString().padStart(4, '0') : '',
         'Member Code': member.memberCode,
         'Full Name': member.name,
@@ -350,71 +324,13 @@ export function MembersTable({ members, allMembers, totalRecords, onImportMember
       XLSX.writeFile(workbook, `members_${new Date().toISOString().split('T')[0]}.xlsx`);
 
       toast.success(`Exported ${membersToExport.length} members to Excel`);
-    }).catch((error) => {
-      console.error('Error loading xlsx library:', error);
+    } catch (error) {
+      console.error('Export failed:', error);
       toast.error('Failed to export Excel file');
-    });
+    }
   };
 
-  // Import from CSV
-  const handleImportCSV = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const text = e.target?.result as string;
-        const lines = text.split('\n').filter(line => line.trim());
-
-        if (lines.length < 2) {
-          toast.error('CSV file is empty or invalid');
-          return;
-        }
-
-        // Parse CSV (skip header)
-        const importedMembers: Member[] = [];
-        for (let i = 1; i < lines.length; i++) {
-          const values = lines[i].split(',').map(v => v.replace(/^"|"$/g, '').trim());
-
-          if (values.length >= 11) {
-            importedMembers.push({
-              id: Date.now().toString() + i,
-              memberCode: values[0],
-              name: values[1],
-              occupation: values[2],
-              dateOfBirth: values[3],
-              baptismStatus: values[4].toLowerCase() === 'yes',
-              confirmationStatus: values[5].toLowerCase() === 'confirmed',
-              maritalStatus: values[6].toLowerCase() === 'married',
-              residentialStatus: values[7].toLowerCase() === 'resident',
-              aadharNumber: values[8],
-              mobile: values[9],
-              remarks: values[10] || '',
-              address: '',
-              area: '',
-              ward: '',
-              registrationDate: new Date().toISOString().split('T')[0],
-              memberStatus: 'unconfirmed'
-            });
-          }
-        }
-
-        if (importedMembers.length > 0 && onImportMembers) {
-          onImportMembers(importedMembers);
-          toast.success(`Imported ${importedMembers.length} members successfully`);
-        } else {
-          toast.error('No valid members found in CSV');
-        }
-      } catch (error) {
-        toast.error('Error parsing CSV file');
-        console.error(error);
-      }
-    };
-
-    reader.readAsText(file);
-    event.target.value = '';
-  };
 
   const handleSort = (column: string) => {
     if (sortColumn === column) {
@@ -434,17 +350,17 @@ export function MembersTable({ members, allMembers, totalRecords, onImportMember
 
   // Get unique occupations for filter
   const uniqueOccupations = React.useMemo(() => {
-    const source = allMembers || members;
+    const source = members;
     const occupations = new Set(source.map(m => m.occupation).filter(Boolean));
     return Array.from(occupations).sort();
-  }, [allMembers, members]);
+  }, [members]);
 
   // Get unique wards for filter
   const uniqueWards = React.useMemo(() => {
-    const source = allMembers || members;
+    const source = members;
     const wards = new Set(source.map(m => m.ward).filter(Boolean));
     return Array.from(wards).sort();
-  }, [allMembers, members]);
+  }, [members]);
 
   // Helper to mask mobile number
   const maskMobileResult = (mobile: string): string => {
@@ -536,7 +452,7 @@ export function MembersTable({ members, allMembers, totalRecords, onImportMember
           Filters
           {hasActiveFilters && (
             <Badge className="ml-2 bg-blue-600 text-white">
-              {[baptismFilter, confirmationFilter, maritalFilter, residentialFilter, occupationFilter, wardFilter].filter(f => f !== 'all').length + (birthdayFilter ? 1 : 0)}
+              {[baptismFilter, confirmationFilter, maritalFilter, residentialFilter, occupationFilter, wardFilter].filter(f => f !== 'all').length + (birthdayFilter === 'yes' ? 1 : 0)}
             </Badge>
           )}
         </Button>
@@ -781,11 +697,12 @@ export function MembersTable({ members, allMembers, totalRecords, onImportMember
 
             <div className="space-y-1">
               <Label className="text-xs text-slate-600">Birthday Today</Label>
-              <Select value={birthdayFilter ? 'yes' : 'no'} onValueChange={(value: string) => setBirthdayFilter(value === 'yes')}>
+              <Select value={birthdayFilter} onValueChange={setBirthdayFilter}>
                 <SelectTrigger className="w-40 bg-white">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
                   <SelectItem value="no">No</SelectItem>
                   <SelectItem value="yes">Yes</SelectItem>
                 </SelectContent>
@@ -1041,33 +958,100 @@ export function MembersTable({ members, allMembers, totalRecords, onImportMember
       </div>
 
       {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-slate-600">
-            Page {currentPage} of {totalPages}
-          </p>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage(currentPage - 1)}
-              disabled={currentPage === 1}
-            >
-              <ChevronLeft className="w-4 h-4 mr-1" />
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage(currentPage + 1)}
-              disabled={currentPage === totalPages}
-            >
-              Next
-              <ChevronRight className="w-4 h-4 ml-1" />
-            </Button>
+      {/* Pagination */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+        {totalPages > 1 && (
+          <div className="flex items-center gap-4">
+            <p className="text-sm text-slate-600">
+              Page {currentPage} of {totalPages}
+            </p>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-slate-600 mr-2">Rows per page:</span>
+              <Select value={pageSize.toString()} onValueChange={(value: string) => setPageSize(Number(value))}>
+                <SelectTrigger className="w-16 h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="20">20</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="100">100</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <div className="h-4 w-px bg-slate-300 mx-2" />
+
+              <Button
+                onClick={() => setCurrentPage(1)}
+                disabled={currentPage === 1}
+                variant="outline"
+                size="sm"
+                className="hidden sm:inline-flex"
+              >
+                First
+              </Button>
+
+              <Button
+                onClick={() => setCurrentPage((prev: number) => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                variant="outline"
+                size="sm"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                <span className="hidden sm:inline ml-1">Previous</span>
+              </Button>
+
+              {/* Page Numbers */}
+              <div className="flex items-center gap-1">
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
+
+                  return (
+                    <Button
+                      key={pageNum}
+                      onClick={() => setCurrentPage(pageNum)}
+                      variant={currentPage === pageNum ? 'default' : 'outline'}
+                      size="sm"
+                      className={currentPage === pageNum ? 'bg-blue-600' : ''}
+                    >
+                      {pageNum}
+                    </Button>
+                  );
+                })}
+              </div>
+
+              <Button
+                onClick={() => setCurrentPage((prev: number) => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                variant="outline"
+                size="sm"
+              >
+                <span className="hidden sm:inline mr-1">Next</span>
+                <ChevronRight className="w-4 h-4 ml-1" />
+              </Button>
+
+              <Button
+                onClick={() => setCurrentPage(totalPages)}
+                disabled={currentPage === totalPages}
+                variant="outline"
+                size="sm"
+                className="hidden sm:inline-flex"
+              >
+                Last
+              </Button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

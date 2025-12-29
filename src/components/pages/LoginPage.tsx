@@ -243,6 +243,17 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                         </form>
                       </TabsContent>
                     </Tabs>
+
+                    <div className="mt-6 pt-6 border-t border-slate-100 text-center">
+                      <p className="text-slate-600 mb-2">Need to find a member?</p>
+                      <a
+                        href="#/lookup"
+                        className="text-blue-600 hover:text-blue-700 font-medium inline-flex items-center gap-1 hover:underline"
+                      >
+                        <UserCircle className="w-4 h-4" />
+                        Go to Member Lookup
+                      </a>
+                    </div>
                   </CardContent>
                 </Card>
               </div>

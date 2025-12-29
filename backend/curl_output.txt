@@ -1,0 +1,119 @@
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0{
+    "title": "CodeIgniter\\Database\\Exceptions\\DatabaseException",
+    "type": "CodeIgniter\\Database\\Exceptions\\DatabaseException",
+    "code": 500,
+    "message": "Duplicate entry 'LCH-1.844674407371E+' for key 'members.member_code'",
+    "file": "/home/sivaji/Downloads/Lutheran/backend/vendor/codeigniter4/framework/system/Database/BaseConnection.php",
+    "line": 684,
+    "trace": [
+        {
+            "file": "/home/sivaji/Downloads/Lutheran/backend/vendor/codeigniter4/framework/system/Database/MySQLi/Connection.php",
+            "line": 327,
+            "function": "query",
+            "class": "mysqli",
+            "type": "->"
+        },
+        {
+            "file": "/home/sivaji/Downloads/Lutheran/backend/vendor/codeigniter4/framework/system/Database/BaseConnection.php",
+            "line": 729,
+            "function": "execute",
+            "class": "CodeIgniter\\Database\\MySQLi\\Connection",
+            "type": "->"
+        },
+        {
+            "file": "/home/sivaji/Downloads/Lutheran/backend/vendor/codeigniter4/framework/system/Database/BaseConnection.php",
+            "line": 646,
+            "function": "simpleQuery",
+            "class": "CodeIgniter\\Database\\BaseConnection",
+            "type": "->"
+        },
+        {
+            "file": "/home/sivaji/Downloads/Lutheran/backend/vendor/codeigniter4/framework/system/Database/BaseBuilder.php",
+            "line": 2345,
+            "function": "query",
+            "class": "CodeIgniter\\Database\\BaseConnection",
+            "type": "->"
+        },
+        {
+            "file": "/home/sivaji/Downloads/Lutheran/backend/vendor/codeigniter4/framework/system/Model.php",
+            "line": 394,
+            "function": "insert",
+            "class": "CodeIgniter\\Database\\BaseBuilder",
+            "type": "->"
+        },
+        {
+            "file": "/home/sivaji/Downloads/Lutheran/backend/vendor/codeigniter4/framework/system/BaseModel.php",
+            "line": 838,
+            "function": "doInsert",
+            "class": "CodeIgniter\\Model",
+            "type": "->"
+        },
+        {
+            "file": "/home/sivaji/Downloads/Lutheran/backend/vendor/codeigniter4/framework/system/Model.php",
+            "line": 797,
+            "function": "insert",
+            "class": "CodeIgniter\\BaseModel",
+            "type": "->"
+        },
+        {
+            "file": "/home/sivaji/Downloads/Lutheran/backend/app/Controllers/Members.php",
+            "line": 223,
+            "function": "insert",
+            "class": "CodeIgniter\\Model",
+            "type": "->"
+        },
+        {
+            "file": "/home/sivaji/Downloads/Lutheran/backend/vendor/codeigniter4/framework/system/CodeIgniter.php",
+            "line": 933,
+            "function": "create",
+            "class": "App\\Controllers\\Members",
+            "type": "->"
+        },
+        {
+            "file": "/home/sivaji/Downloads/Lutheran/backend/vendor/codeigniter4/framework/system/CodeIgniter.php",
+            "line": 507,
+            "function": "runController",
+            "class": "CodeIgniter\\CodeIgniter",
+            "type": "->"
+        },
+        {
+            "file": "/home/sivaji/Downloads/Lutheran/backend/vendor/codeigniter4/framework/system/CodeIgniter.php",
+            "line": 354,
+            "function": "handleRequest",
+            "class": "CodeIgniter\\CodeIgniter",
+            "type": "->"
+        },
+        {
+            "file": "/home/sivaji/Downloads/Lutheran/backend/vendor/codeigniter4/framework/system/Boot.php",
+            "line": 363,
+            "function": "run",
+            "class": "CodeIgniter\\CodeIgniter",
+            "type": "->"
+        },
+        {
+            "file": "/home/sivaji/Downloads/Lutheran/backend/vendor/codeigniter4/framework/system/Boot.php",
+            "line": 68,
+            "function": "runCodeIgniter",
+            "class": "CodeIgniter\\Boot",
+            "type": "::"
+        },
+        {
+            "file": "/home/sivaji/Downloads/Lutheran/backend/public/index.php",
+            "line": 59,
+            "function": "bootWeb",
+       100  4749    0  4481  100   268   460k  28225 --:--:-- --:--:-- --:--:--  515k
+     "class": "CodeIgniter\\Boot",
+            "type": "::"
+        },
+        {
+            "file": "/home/sivaji/Downloads/Lutheran/backend/vendor/codeigniter4/framework/system/rewrite.php",
+            "line": 44,
+            "args": [
+                "/home/sivaji/Downloads/Lutheran/backend/public/index.php"
+            ],
+            "function": "require_once"
+        }
+    ]
+}

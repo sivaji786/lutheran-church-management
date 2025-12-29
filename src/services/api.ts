@@ -270,7 +270,7 @@ class ApiClient {
         residentialStatus?: string;
         occupation?: string;
         ward?: string;
-        birthday?: boolean;
+        birthday?: boolean | string;
         sortBy?: string;
         sortOrder?: string;
     }): Promise<PaginatedResponse> {
@@ -291,10 +291,12 @@ class ApiClient {
     }
 
     async createMember(data: any): Promise<ApiResponse<any>> {
+        console.log(data);
         return this.request('/members', {
             method: 'POST',
             body: JSON.stringify(data),
         });
+
     }
 
     async updateMember(id: string, data: any): Promise<ApiResponse<any>> {
@@ -425,10 +427,16 @@ class ApiClient {
         });
     }
 
-    async updateTicketStatus(id: string, status: string): Promise<ApiResponse<any>> {
+    async updateTicketStatus(id: string, status: string, adminNotes?: string): Promise<ApiResponse<any>> {
         return this.request(`/tickets/${id}/status`, {
             method: 'PATCH',
-            body: JSON.stringify({ status }),
+            body: JSON.stringify({ status, adminNotes }),
+        });
+    }
+
+    async getTicketHistory(id: string): Promise<ApiResponse<any>> {
+        return this.request(`/tickets/${id}/history`, {
+            method: 'GET',
         });
     }
 

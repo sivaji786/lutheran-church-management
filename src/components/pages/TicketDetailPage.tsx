@@ -1,13 +1,13 @@
-import React, { useState } from 'react';
-import { Ticket as TicketIcon, ArrowLeft, Clock } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Ticket as TicketIcon, ArrowLeft, Clock, MessageSquare, User } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card, CardContent } from '../ui/card';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Textarea } from '../ui/textarea';
 import { Badge } from '../ui/badge';
-import { Ticket } from '../../App';
-import { toast } from 'sonner';
+import { Ticket, TicketHistory } from '../../App';
+import { apiClient } from '../../services/api';
 
 type TicketDetailPageProps = {
     ticket: Ticket;
@@ -43,20 +43,51 @@ const getCategoryColor = (category: Ticket['category']) => {
 
 export function TicketDetailPage({ ticket, onUpdateTicket, onBack }: TicketDetailPageProps) {
     const [editingStatus, setEditingStatus] = useState<Ticket['status']>(ticket.status);
-    const [adminNotes, setAdminNotes] = useState(ticket.adminNotes || '');
+    const [adminNotes, setAdminNotes] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [ticketHistory, setTicketHistory] = useState<TicketHistory[]>([]);
+    const [loadingHistory, setLoadingHistory] = useState(true);
+
+    // Fetch ticket history on component mount
+    useEffect(() => {
+        const fetchHistory = async () => {
+            if (!ticket.id) return;
+
+            try {
+                setLoadingHistory(true);
+                const response = await apiClient.getTicketHistory(ticket.id);
+                if (response.success && response.data) {
+                    setTicketHistory(response.data);
+                }
+            } catch (error) {
+                console.error('Error fetching ticket history:', error);
+            } finally {
+                setLoadingHistory(false);
+            }
+        };
+
+        fetchHistory();
+    }, [ticket.id]);
 
     const handleUpdate = async () => {
+        if (!ticket.id) return;
+
         setIsSubmitting(true);
-        await onUpdateTicket(ticket.id, editingStatus, adminNotes);
-        // toast is handled in App.tsx or we can show it here if App.tsx doesn't. 
-        // App.tsx shows toast.success('Ticket updated successfully');
-        // But here we also had toast.success. I'll remove the one here to avoid duplicate, 
-        // or keep it if App.tsx returns void and I want to be sure.
-        // App.tsx: toast.success('Ticket updated successfully');
-        // So I will remove it here.
-        onBack();
-        setIsSubmitting(false);
+        try {
+            await onUpdateTicket(ticket.id, editingStatus, adminNotes);
+            // Clear the notes textarea after successful update
+            setAdminNotes('');
+            // Refresh history
+            const response = await apiClient.getTicketHistory(ticket.id);
+            if (response.success && response.data) {
+                setTicketHistory(response.data);
+            }
+            onBack();
+        } catch (error) {
+            console.error('Error updating ticket:', error);
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
@@ -163,6 +194,68 @@ export function TicketDetailPage({ ticket, onUpdateTicket, onBack }: TicketDetai
                                 </div>
                             </div>
 
+                            {/* Ticket History / Comment Ladder */}
+                            {ticketHistory.length > 0 && (
+                                <>
+                                    <div className="border-t border-slate-200 my-8"></div>
+                                    <div className="space-y-4">
+                                        <div className="flex items-center gap-2">
+                                            <MessageSquare className="w-5 h-5 text-slate-600" />
+                                            <h3 className="text-xl font-semibold text-slate-900">Conversation History</h3>
+                                        </div>
+
+                                        <div className="space-y-4">
+                                            {ticketHistory.map((entry) => (
+                                                <div key={entry.id} className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                                                    <div className="flex items-start gap-3">
+                                                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                                            <User className="w-5 h-5 text-blue-600" />
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex items-center gap-2 flex-wrap">
+                                                                <span className="font-semibold text-slate-900">{entry.performedByName}</span>
+                                                                <Badge variant="outline" className="text-xs">
+                                                                    {entry.performedByType === 'admin' ? 'Admin' : 'Member'}
+                                                                </Badge>
+                                                                <span className="text-xs text-slate-500">
+                                                                    {new Date(entry.createdAt).toLocaleString('en-IN', {
+                                                                        day: 'numeric',
+                                                                        month: 'short',
+                                                                        year: 'numeric',
+                                                                        hour: '2-digit',
+                                                                        minute: '2-digit'
+                                                                    })}
+                                                                </span>
+                                                            </div>
+
+                                                            <div className="mt-2">
+                                                                <p className="text-sm font-medium text-slate-700">{entry.action}</p>
+                                                                {entry.oldStatus && entry.newStatus && (
+                                                                    <div className="flex items-center gap-2 mt-1">
+                                                                        <Badge className={getStatusColor(entry.oldStatus as Ticket['status'])}>
+                                                                            {entry.oldStatus}
+                                                                        </Badge>
+                                                                        <span className="text-slate-400">→</span>
+                                                                        <Badge className={getStatusColor(entry.newStatus as Ticket['status'])}>
+                                                                            {entry.newStatus}
+                                                                        </Badge>
+                                                                    </div>
+                                                                )}
+                                                                {entry.notes && (
+                                                                    <div className="mt-3 p-3 bg-white rounded border border-slate-200">
+                                                                        <p className="text-slate-900 whitespace-pre-wrap">{entry.notes}</p>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+
                             {/* Divider */}
                             <div className="border-t border-slate-200 my-8"></div>
 
@@ -194,7 +287,7 @@ export function TicketDetailPage({ ticket, onUpdateTicket, onBack }: TicketDetai
                                 {/* Admin Notes */}
                                 <div className="space-y-2">
                                     <Label htmlFor="adminNotes" className="text-sm font-medium text-slate-700">
-                                        Admin Notes / Response
+                                        Add Response
                                     </Label>
                                     <Textarea
                                         id="adminNotes"
@@ -204,7 +297,7 @@ export function TicketDetailPage({ ticket, onUpdateTicket, onBack }: TicketDetai
                                         className="min-h-32 resize-none"
                                     />
                                     <p className="text-xs text-slate-500">
-                                        These notes will be visible to the member when they view this ticket.
+                                        This response will be added to the conversation history and visible to the member.
                                     </p>
                                 </div>
 

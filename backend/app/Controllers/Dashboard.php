@@ -46,6 +46,49 @@ class Dashboard extends BaseController
             FROM tickets
         ")->getRowArray();
 
+        // Get Today's Birthdays Count
+        $birthdayStats = $db->query("
+            SELECT COUNT(*) as today_birthdays
+            FROM members
+            WHERE MONTH(date_of_birth) = MONTH(CURDATE()) 
+            AND DAY(date_of_birth) = DAY(CURDATE())
+        ")->getRowArray();
+
+        // Get Recent Members (Last 5)
+        $recentMembers = $db->query("
+            SELECT id, name, member_code, registration_date
+            FROM members
+            ORDER BY created_at DESC
+            LIMIT 5
+        ")->getResultArray();
+
+        // Get Recent Offerings (Last 5)
+        $recentOfferings = $db->query("
+            SELECT id, member_name, amount, offer_type, date
+            FROM offerings
+            ORDER BY created_at DESC
+            LIMIT 5
+        ")->getResultArray();
+
+        // Get Chart Data (Last 365 Days)
+        // Grouped by date for Members
+        $memberChartData = $db->query("
+            SELECT DATE(registration_date) as date, COUNT(*) as count
+            FROM members
+            WHERE registration_date >= DATE_SUB(CURDATE(), INTERVAL 1 YEAR)
+            GROUP BY DATE(registration_date)
+            ORDER BY date ASC
+        ")->getResultArray();
+
+        // Grouped by date for Offerings
+        $offeringChartData = $db->query("
+            SELECT DATE(date) as date, SUM(amount) as total
+            FROM offerings
+            WHERE date >= DATE_SUB(CURDATE(), INTERVAL 1 YEAR)
+            GROUP BY DATE(date)
+            ORDER BY date ASC
+        ")->getResultArray();
+
         return $this->respond([
             'success' => true,
             'data' => [
@@ -54,7 +97,8 @@ class Dashboard extends BaseController
                     'confirmed' => (int)($memberStats['confirmed_members'] ?? 0),
                     'unconfirmed' => (int)($memberStats['unconfirmed_members'] ?? 0),
                     'suspended' => (int)($memberStats['suspended_members'] ?? 0),
-                    'newThisMonth' => (int)($memberStats['new_this_month'] ?? 0)
+                    'newThisMonth' => (int)($memberStats['new_this_month'] ?? 0),
+                    'todayBirthdays' => (int)($birthdayStats['today_birthdays'] ?? 0)
                 ],
                 'offerings' => [
                     'total' => (int)($offeringStats['total_offerings'] ?? 0),
@@ -69,6 +113,12 @@ class Dashboard extends BaseController
                     'inProgress' => (int)($ticketStats['in_progress_tickets'] ?? 0),
                     'resolved' => (int)($ticketStats['resolved_tickets'] ?? 0),
                     'closed' => (int)($ticketStats['closed_tickets'] ?? 0)
+                ],
+                'recentMembers' => $recentMembers,
+                'recentOfferings' => $recentOfferings,
+                'charts' => [
+                    'members' => $memberChartData,
+                    'offerings' => $offeringChartData
                 ]
             ]
         ]);
