@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, Mail, Phone, MapPin, DollarSign, Calendar, ArrowLeft, TrendingUp, PieChart, IdCard, Briefcase, Cake, Church, Heart, Home, CheckCircle, XCircle, BanIcon, Edit, KeyRound, Printer } from 'lucide-react';
+import { User, Mail, Phone, MapPin, DollarSign, Calendar, ArrowLeft, TrendingUp, PieChart, IdCard, Briefcase, Cake, Church, Heart, Home, CheckCircle, XCircle, BanIcon, Edit, KeyRound, Printer, Crown, Trash2 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import churchLogo from '../assets/church_logo_new.png';
@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Member, Offering } from '../App';
 import { toast } from 'sonner';
 import { AdminResetPasswordDialog } from './AdminResetPasswordDialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog';
 
 type MemberDetailViewProps = {
   member: Member;
@@ -19,16 +20,19 @@ type MemberDetailViewProps = {
   onEditMember: () => void;
   onBack: () => void;
   onMemberClick?: (member: Member) => void;
+  onSetFamilyHead?: (memberId: string) => void;
+  onDeleteMember?: (memberId: string) => void;
 };
 
-export function MemberDetailView({ member, offerings, onUpdateMemberStatus, onResetPassword, onEditMember, onBack, onMemberClick }: MemberDetailViewProps) {
+export function MemberDetailView({ member, offerings, onUpdateMemberStatus, onResetPassword, onEditMember, onBack, onMemberClick, onSetFamilyHead, onDeleteMember }: MemberDetailViewProps) {
   const [showResetPasswordDialog, setShowResetPasswordDialog] = React.useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
 
   // Get offerings for this member
   const memberOfferings = offerings.filter(o => o.memberId === member.id);
 
-  // Calculate statistics
-  const totalContributions = memberOfferings.reduce((sum, o) => sum + o.amount, 0);
+  // Calculate statistics - ensure amounts are numbers
+  const totalContributions = memberOfferings.reduce((sum, o) => sum + (Number(o.amount) || 0), 0);
   const averageContribution = memberOfferings.length > 0
     ? totalContributions / memberOfferings.length
     : 0;
@@ -40,11 +44,11 @@ export function MemberDetailView({ member, offerings, onUpdateMemberStatus, onRe
     return offeringDate.getMonth() === now.getMonth() &&
       offeringDate.getFullYear() === now.getFullYear();
   });
-  const thisMonthTotal = thisMonthOfferings.reduce((sum, o) => sum + o.amount, 0);
+  const thisMonthTotal = thisMonthOfferings.reduce((sum, o) => sum + (Number(o.amount) || 0), 0);
 
   // Offering type breakdown
   const offeringsByType = memberOfferings.reduce((acc, o) => {
-    acc[o.offerType] = (acc[o.offerType] || 0) + o.amount;
+    acc[o.offerType] = (acc[o.offerType] || 0) + (Number(o.amount) || 0);
     return acc;
   }, {} as Record<string, number>);
 
@@ -63,15 +67,22 @@ export function MemberDetailView({ member, offerings, onUpdateMemberStatus, onRe
     : 'No offerings yet';
 
   // Calculate age
-  const calculateAge = (dob: string) => {
-    const birthDate = new Date(dob);
+  const calculateAge = (dateOfBirth: string): number => {
     const today = new Date();
+    const birthDate = new Date(dateOfBirth);
     let age = today.getFullYear() - birthDate.getFullYear();
     const monthDiff = today.getMonth() - birthDate.getMonth();
     if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
       age--;
     }
     return age;
+  };
+
+  const handleResetPassword = (newPassword: string) => {
+    if (member.id) {
+      onResetPassword(member.id, newPassword);
+      setShowResetPasswordDialog(false);
+    }
   };
 
   const handlePrintFamilyDetails = async () => {
@@ -294,6 +305,17 @@ export function MemberDetailView({ member, offerings, onUpdateMemberStatus, onRe
                 <KeyRound className="w-4 h-4 mr-2" />
                 Reset Password
               </Button>
+
+              {onDeleteMember && (
+                <Button
+                  onClick={() => setShowDeleteDialog(true)}
+                  variant="outline"
+                  className="border-red-500 text-red-700 hover:bg-red-100"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete Member
+                </Button>
+              )}
             </div>
           </div>
         </CardHeader>
@@ -327,14 +349,20 @@ export function MemberDetailView({ member, offerings, onUpdateMemberStatus, onRe
                   <div>
                     <p className="text-sm text-slate-500">Date of Birth</p>
                     <p className="text-slate-900">
-                      {new Date(member.dateOfBirth).toLocaleDateString('en-IN', {
-                        day: 'numeric',
-                        month: 'long',
-                        year: 'numeric'
-                      })}
-                      <span className="text-slate-500 text-sm ml-2">
-                        ({calculateAge(member.dateOfBirth)} years)
-                      </span>
+                      {member.dateOfBirth ? (
+                        <>
+                          {new Date(member.dateOfBirth).toLocaleDateString('en-IN', {
+                            day: 'numeric',
+                            month: 'long',
+                            year: 'numeric'
+                          })}
+                          <span className="text-slate-500 text-sm ml-2">
+                            ({calculateAge(member.dateOfBirth)} years)
+                          </span>
+                        </>
+                      ) : (
+                        '-'
+                      )}
                     </p>
                   </div>
                 </div>
@@ -467,6 +495,7 @@ export function MemberDetailView({ member, offerings, onUpdateMemberStatus, onRe
                     <TableHead>Aadhar No</TableHead>
                     <TableHead>Resident</TableHead>
                     <TableHead>Mobile Number</TableHead>
+                    <TableHead className="text-center">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -481,7 +510,17 @@ export function MemberDetailView({ member, offerings, onUpdateMemberStatus, onRe
                       }}
                     >
                       <TableCell className="font-medium">{fm.memberOrder}</TableCell>
-                      <TableCell className="font-medium text-slate-900">{fm.name}</TableCell>
+                      <TableCell className="font-medium text-slate-900">
+                        <div className="flex items-center gap-2">
+                          {fm.name}
+                          {fm.isHeadOfFamily === "1" && (
+                            <Badge className="bg-amber-100 text-amber-800 border-amber-300">
+                              <Crown className="w-3 h-3 mr-1" />
+                              Head
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell>{fm.occupation}</TableCell>
                       <TableCell>
                         {fm.dateOfBirth ? new Date(fm.dateOfBirth).toLocaleDateString('en-IN', {
@@ -512,6 +551,30 @@ export function MemberDetailView({ member, offerings, onUpdateMemberStatus, onRe
                         </span>
                       </TableCell>
                       <TableCell>{fm.mobile || '-'}</TableCell>
+                      <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                        {fm.isHeadOfFamily !== "1" && onSetFamilyHead && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-amber-200 text-amber-700 hover:bg-amber-50"
+                            onClick={() => {
+                              if (fm.id) {
+                                onSetFamilyHead(fm.id);
+                                toast.success(`${fm.name} is now the head of the family`);
+                              }
+                            }}
+                          >
+                            <Crown className="w-3 h-3 mr-1" />
+                            Make Head
+                          </Button>
+                        )}
+                        {fm.isHeadOfFamily === "1" && (
+                          <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300">
+                            <Crown className="w-3 h-3 mr-1" />
+                            Current Head
+                          </Badge>
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -607,7 +670,7 @@ export function MemberDetailView({ member, offerings, onUpdateMemberStatus, onRe
             </div>
             <div className="space-y-1">
               <p className="text-slate-600 text-sm">Total Contributions</p>
-              <h2 className="text-green-900">₹{totalContributions.toLocaleString('en-IN')}</h2>
+              <h2 className="text-green-900">₹{Number(totalContributions).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h2>
               <p className="text-slate-500 text-sm">{memberOfferings.length} offerings</p>
             </div>
           </CardContent>
@@ -622,7 +685,7 @@ export function MemberDetailView({ member, offerings, onUpdateMemberStatus, onRe
             </div>
             <div className="space-y-1">
               <p className="text-slate-600 text-sm">Average Contribution</p>
-              <h2 className="text-blue-900">₹{Math.round(averageContribution).toLocaleString('en-IN')}</h2>
+              <h2 className="text-blue-900">₹{Number(averageContribution).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h2>
               <p className="text-slate-500 text-sm">Per offering</p>
             </div>
           </CardContent>
@@ -637,7 +700,7 @@ export function MemberDetailView({ member, offerings, onUpdateMemberStatus, onRe
             </div>
             <div className="space-y-1">
               <p className="text-slate-600 text-sm">This Month</p>
-              <h2 className="text-amber-900">₹{thisMonthTotal.toLocaleString('en-IN')}</h2>
+              <h2 className="text-amber-900">₹{Number(thisMonthTotal).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h2>
               <p className="text-slate-500 text-sm">{thisMonthOfferings.length} offerings</p>
             </div>
           </CardContent>
@@ -675,9 +738,11 @@ export function MemberDetailView({ member, offerings, onUpdateMemberStatus, onRe
                 {Object.entries(offeringsByType).map(([type, amount]) => (
                   <div key={type} className="p-4 bg-gradient-to-br from-slate-50 to-white rounded-lg border border-slate-200">
                     <p className="text-sm text-slate-600 mb-1">{type}</p>
-                    <p className="text-green-900 text-xl">₹{amount.toLocaleString('en-IN')}</p>
+                    <p className="text-green-900 text-xl">₹{Number(amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                     <p className="text-slate-500 text-sm mt-1">
-                      {Math.round((amount / totalContributions) * 100)}% of total
+                      {totalContributions > 0 && !isNaN(amount) && !isNaN(totalContributions) && amount > 0
+                        ? `${Math.round((amount / totalContributions) * 100)}% of total`
+                        : '0% of total'}
                     </p>
                   </div>
                 ))}
@@ -702,6 +767,7 @@ export function MemberDetailView({ member, offerings, onUpdateMemberStatus, onRe
                     <TableHead>Date</TableHead>
                     <TableHead>Offer Type</TableHead>
                     <TableHead>Payment Mode</TableHead>
+                    <TableHead>Notes</TableHead>
                     <TableHead className="text-right">Amount</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -725,8 +791,9 @@ export function MemberDetailView({ member, offerings, onUpdateMemberStatus, onRe
                           {offering.paymentMode}
                         </Badge>
                       </TableCell>
+                      <TableCell className="text-slate-600 text-sm">{offering.notes || '-'}</TableCell>
                       <TableCell className="text-right text-green-900">
-                        ₹{offering.amount.toLocaleString('en-IN')}
+                        ₹{Number(offering.amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -747,8 +814,48 @@ export function MemberDetailView({ member, offerings, onUpdateMemberStatus, onRe
         open={showResetPasswordDialog}
         onOpenChange={setShowResetPasswordDialog}
         member={member}
-        onResetPassword={onResetPassword}
+        onResetPassword={handleResetPassword}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Member</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete <strong>{member.name}</strong>?
+              {offerings.length > 0 && (
+                <span className="block mt-2 text-amber-700">
+                  ⚠️ This member has {offerings.length} offering record(s). These will also be deleted.
+                </span>
+              )}
+              <span className="block mt-2 text-red-700 font-semibold">
+                This action cannot be undone.
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowDeleteDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (onDeleteMember && member.id) {
+                  onDeleteMember(member.id);
+                  setShowDeleteDialog(false);
+                }
+              }}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete Member
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div >
   );
 }

@@ -9,18 +9,19 @@ const TicketDetailPage = lazy(() => import('./components/pages/TicketDetailPage'
 const MemberLookupPage = lazy(() => import('./components/pages/MemberLookupPage').then(m => ({ default: m.MemberLookupPage })));
 
 import { apiClient } from './services/api';
-import { toast, Toaster } from 'sonner';
+import { toast } from 'sonner';
+import { Toaster } from './components/ui/sonner';
 
 export type Member = {
   id?: string;
   name: string;
   occupation: string;
-  dateOfBirth: string;
+  dateOfBirth?: string;
   baptismStatus: boolean;
   confirmationStatus: boolean;
   maritalStatus: boolean; // true = Married, false = Unmarried
   residentialStatus: boolean; // true = Resident, false = Non-Resident
-  aadharNumber: string;
+  aadharNumber?: string;
   mobile: string;
   address: string;
   area: string;
@@ -31,6 +32,8 @@ export type Member = {
   memberStatus: 'confirmed' | 'unconfirmed' | 'suspended';
   memberSerialNum?: number;
   memberOrder?: number;
+  isHeadOfFamily?: string; // API returns "0" or "1" as strings
+  headOfFamily?: string;
   familyMembers?: Member[];
 };
 
@@ -43,6 +46,8 @@ export type Offering = {
   amount: number;
   offerType: string;
   paymentMode: string;
+  notes?: string;
+  receiptNumber?: string;
 };
 
 export type Ticket = {
@@ -78,6 +83,7 @@ export type User = {
   type: 'admin' | 'member';
   memberCode?: string;
   token?: string;
+  isSuperadmin?: string;
 };
 
 type Page = 'login' | 'ticketDetail' | 'lookup';
@@ -349,6 +355,7 @@ function App() {
           <Suspense fallback={<LoadingSpinner />}>
             <AdminDashboard
               onLogout={handleLogout}
+              currentUser={currentUser}
             />
           </Suspense>
         </>

@@ -43,7 +43,7 @@ class NonMemberOfferingModel extends Model
         'date' => 'required|valid_date',
         'amount' => 'required|decimal|greater_than[0]',
         'offer_type' => 'required|max_length[50]',
-        'payment_mode' => 'required|in_list[Cash,UPI,Bank Transfer,Cheque,Card]',
+        'payment_mode' => 'required|in_list[Cash,UPI,Bank Transfer,Cheque,Card,Cover]',
         'cheque_number' => 'permit_empty|max_length[50]',
         'transaction_id' => 'permit_empty|max_length[100]',
         'receipt_number' => 'permit_empty|max_length[50]|is_unique[non_member_offerings.receipt_number,id,{id}]',

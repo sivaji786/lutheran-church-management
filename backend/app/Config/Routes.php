@@ -39,8 +39,12 @@ $routes->options('members/(:any)', $corsResponse);
 $routes->options('members/(:any)/offerings', $corsResponse);
 $routes->options('members/(:any)/status', $corsResponse);
 $routes->options('members/(:any)/reset-password', $corsResponse);
+$routes->options('members/(:any)/set-family-head', $corsResponse);
+$routes->options('members/(:any)', $corsResponse);
+$routes->options('members/lookup', $corsResponse);
 $routes->options('offerings', $corsResponse);
 $routes->options('offerings/(:any)', $corsResponse);
+$routes->options('offerings/(:any)/history', $corsResponse);
 $routes->options('tickets', $corsResponse);
 $routes->options('tickets/(:any)', $corsResponse);
 $routes->options('tickets/(:any)/status', $corsResponse);
@@ -49,6 +53,11 @@ $routes->options('non-member-offerings', $corsResponse);
 $routes->options('non-member-offerings/(:any)', $corsResponse);
 $routes->options('non-member-offerings/statistics', $corsResponse);
 $routes->options('dashboard/stats', $corsResponse);
+$routes->options('admin/profile', $corsResponse);
+$routes->options('admin/change-password', $corsResponse);
+$routes->options('admin-users', $corsResponse);
+$routes->options('admin-users/(:any)', $corsResponse);
+$routes->options('admin-users/(:any)/reset-password', $corsResponse);
 
 // Route configuration
 
@@ -59,14 +68,34 @@ $routes->group('auth', function($routes) {
     $routes->post('change-password', 'Auth::changePassword');
 });
 
+// Admin Profile
+$routes->group('admin', function($routes) {
+    $routes->get('profile', 'Admin::profile');
+    $routes->put('profile', 'Admin::updateProfile');
+    $routes->post('change-password', 'Admin::changePassword');
+});
+
+// Admin Users (Church Users)
+$routes->group('admin-users', function($routes) {
+    $routes->get('/', 'AdminUsers::index');
+    $routes->post('/', 'AdminUsers::create');
+    $routes->put('(:segment)', 'AdminUsers::update/$1');
+    $routes->delete('(:segment)', 'AdminUsers::delete/$1');
+    $routes->post('(:segment)/reset-password', 'AdminUsers::resetPassword/$1');
+});
+
+
 // Members
 $routes->group('members', function($routes) {
+    $routes->get('lookup', 'Members::lookup');
     $routes->get('/', 'Members::index');
     $routes->get('(:segment)', 'Members::show/$1');
     $routes->post('/', 'Members::create');
     $routes->put('(:segment)', 'Members::update/$1');
     $routes->patch('(:segment)/status', 'Members::updateStatus/$1');
     $routes->post('(:segment)/reset-password', 'Members::resetPassword/$1');
+    $routes->post('(:segment)/set-family-head', 'Members::setFamilyHead/$1');
+    $routes->delete('(:segment)', 'Members::delete/$1');
     $routes->get('(:segment)/offerings', 'Offerings::memberOfferings/$1');
 });
 
@@ -75,6 +104,7 @@ $routes->group('offerings', function($routes) {
     $routes->get('/', 'Offerings::index');
     $routes->post('/', 'Offerings::create');
     $routes->put('(:segment)', 'Offerings::update/$1');
+    $routes->get('(:segment)/history', 'Offerings::history/$1');
     $routes->delete('(:segment)', 'Offerings::delete/$1');
 });
 

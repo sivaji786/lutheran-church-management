@@ -36,8 +36,22 @@ class OfferingModel extends Model
     protected $deletedField  = 'deleted_at';
 
     // Validation
-    protected $validationRules      = [];
-    protected $validationMessages   = [];
+    protected $validationRules = [
+        'member_id' => 'required',
+        'date' => 'required|valid_date',
+        'amount' => 'required|decimal|greater_than[0]',
+        'offer_type' => 'required|max_length[50]',
+        'payment_mode' => 'required|in_list[Cash,UPI,Bank Transfer,Cheque,Card,Cover]',
+        'receipt_number' => 'permit_empty|max_length[50]|is_unique[offerings.receipt_number,id,{id}]',
+        'recorded_by' => 'required'
+    ];
+    
+    protected $validationMessages = [
+        'payment_mode' => [
+            'in_list' => 'Invalid payment mode'
+        ]
+    ];
+    
     protected $skipValidation       = false;
     protected $cleanValidationRules = true;
 

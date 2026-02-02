@@ -21,6 +21,8 @@ class Members extends BaseController
         $sortBy = $this->request->getVar('sortBy') ?? 'created_at';
         $sortOrder = $this->request->getVar('sortOrder') ?? 'desc';
 
+        // file_put_contents(WRITEPATH . 'logs/debug_filters.log', json_encode($this->request->getGet()) . "\n", FILE_APPEND);
+
         $builder = $model->builder();
 
         if ($search) {
@@ -32,7 +34,7 @@ class Members extends BaseController
                 ->groupEnd();
         }
 
-        if ($memberStatus) {
+        if ($memberStatus && $memberStatus !== 'all') {
             $builder->where('member_status', $memberStatus);
         }
 
@@ -44,6 +46,13 @@ class Members extends BaseController
         $confirmationStatus = $this->request->getVar('confirmationStatus');
         if ($confirmationStatus !== null && $confirmationStatus !== 'all') {
             $builder->where('confirmation_status', $confirmationStatus === 'confirmed' ? 1 : 0);
+            // When filtering by confirmation, exclude suspended members unless specifically requested
+            if ($memberStatus !== 'suspended') {
+                $builder->groupStart()
+                        ->where('member_status !=', 'suspended')
+                        ->orWhere('member_status', null)
+                        ->groupEnd();
+            }
         }
 
         $maritalStatus = $this->request->getVar('maritalStatus');
@@ -94,12 +103,17 @@ class Members extends BaseController
             ->get()
             ->getResultArray();
 
-        // Cast boolean fields
+        // Cast boolean fields and transform to camelCase
         foreach ($members as &$member) {
             $member['baptism_status'] = (bool)$member['baptism_status'];
             $member['confirmation_status'] = (bool)$member['confirmation_status'];
             $member['marital_status'] = (bool)$member['marital_status'];
             $member['residential_status'] = (bool)$member['residential_status'];
+            // Cast numeric fields to integers
+            if (isset($member['member_order'])) $member['member_order'] = (int)$member['member_order'];
+            if (isset($member['member_serial_num'])) $member['member_serial_num'] = (int)$member['member_serial_num'];
+            if (isset($member['family_id'])) $member['family_id'] = (int)$member['family_id'];
+            $member = $this->transformToCamelCase($member);
         }
 
         return $this->respond([
@@ -133,23 +147,27 @@ class Members extends BaseController
         $member['marital_status'] = (bool)$member['marital_status'];
         $member['residential_status'] = (bool)$member['residential_status'];
 
+        // Transform to camelCase
+        $member = $this->transformToCamelCase($member);
+
         // Fetch family members
         $familyMembers = [];
-        if (!empty($member['member_serial_num'])) {
-            $familyMembers = $model->where('member_serial_num', $member['member_serial_num'])
+        if (!empty($member['memberSerialNum'])) {
+            $familyMembersRaw = $model->where('member_serial_num', $member['memberSerialNum'])
                                    ->orderBy('member_order', 'ASC')
                                    ->findAll();
             
-            // Cast boolean fields for family members
-            foreach ($familyMembers as &$fm) {
+            // Cast boolean fields and transform for family members
+            foreach ($familyMembersRaw as &$fm) {
                 unset($fm['password']);
                 $fm['baptism_status'] = (bool)$fm['baptism_status'];
                 $fm['confirmation_status'] = (bool)$fm['confirmation_status'];
                 $fm['marital_status'] = (bool)$fm['marital_status'];
                 $fm['residential_status'] = (bool)$fm['residential_status'];
+                $familyMembers[] = $this->transformToCamelCase($fm);
             }
         }
-        $member['family_members'] = $familyMembers;
+        $member['familyMembers'] = $familyMembers;
 
         return $this->respond([
             'success' => true,
@@ -165,12 +183,12 @@ class Members extends BaseController
         unset($data['id']); // Let database trigger generate UUID
 
         // Map camelCase to snake_case for create
-        if (isset($data['dateOfBirth'])) $data['date_of_birth'] = $data['dateOfBirth'];
+        if (isset($data['dateOfBirth'])) $data['date_of_birth'] = empty($data['dateOfBirth']) ? null : $data['dateOfBirth'];
         if (isset($data['baptismStatus'])) $data['baptism_status'] = $data['baptismStatus'];
         if (isset($data['confirmationStatus'])) $data['confirmation_status'] = $data['confirmationStatus'];
         if (isset($data['maritalStatus'])) $data['marital_status'] = $data['maritalStatus'];
         if (isset($data['residentialStatus'])) $data['residential_status'] = $data['residentialStatus'];
-        if (isset($data['aadharNumber'])) $data['aadhar_number'] = $data['aadharNumber'];
+        if (isset($data['aadharNumber'])) $data['aadhar_number'] = empty($data['aadharNumber']) ? null : $data['aadharNumber'];
         if (isset($data['memberStatus'])) $data['member_status'] = $data['memberStatus'];
         if (isset($data['memberSerialNum'])) $data['member_serial_num'] = $data['memberSerialNum'];
         
@@ -189,6 +207,15 @@ class Members extends BaseController
             
             $serial = str_pad($serialNum, 4, '0', STR_PAD_LEFT);
             $data['member_code'] = "LCH-{$serial}-{$nextOrder}";
+            
+            // Set head_of_family
+            if ($nextOrder === 1) {
+                // This is the first member, they are the head of family
+                $data['head_of_family'] = $data['member_code'];
+            } else {
+                // Get the head of family for this serial number
+                $data['head_of_family'] = $this->getHeadOfFamilyCode($serialNum);
+            }
         } else {
             // Fallback: Generate next serial number if missing
             $db = \Config\Database::connect();
@@ -208,6 +235,9 @@ class Members extends BaseController
             
             $serialStr = str_pad($nextSerial, 4, '0', STR_PAD_LEFT);
             $data['member_code'] = "LCH-{$serialStr}-{$nextOrder}";
+            
+            // This is the first member of a new family, they are the head
+            $data['head_of_family'] = $data['member_code'];
         }
         
         // Hash password
@@ -247,12 +277,12 @@ class Members extends BaseController
         $data = $this->request->getJSON(true);
 
         // Map camelCase to snake_case for update
-        if (isset($data['dateOfBirth'])) $data['date_of_birth'] = $data['dateOfBirth'];
+        if (isset($data['dateOfBirth'])) $data['date_of_birth'] = empty($data['dateOfBirth']) ? null : $data['dateOfBirth'];
         if (isset($data['baptismStatus'])) $data['baptism_status'] = $data['baptismStatus'];
         if (isset($data['confirmationStatus'])) $data['confirmation_status'] = $data['confirmationStatus'];
         if (isset($data['maritalStatus'])) $data['marital_status'] = $data['maritalStatus'];
         if (isset($data['residentialStatus'])) $data['residential_status'] = $data['residentialStatus'];
-        if (isset($data['aadharNumber'])) $data['aadhar_number'] = $data['aadharNumber'];
+        if (isset($data['aadharNumber'])) $data['aadhar_number'] = empty($data['aadharNumber']) ? null : $data['aadharNumber'];
         if (isset($data['memberStatus'])) $data['member_status'] = $data['memberStatus'];
         
         // Don't allow updating certain fields
@@ -277,6 +307,15 @@ class Members extends BaseController
                 // Generate new member_code
                 $serial = str_pad($newSerial, 4, '0', STR_PAD_LEFT);
                 $data['member_code'] = "LCH-{$serial}-{$nextOrder}";
+                
+                // Update head_of_family for the new family
+                if ($nextOrder === 1) {
+                    // This member is now the first in the new family
+                    $data['head_of_family'] = $data['member_code'];
+                } else {
+                    // Get the head of family for the new serial number
+                    $data['head_of_family'] = $this->getHeadOfFamilyCode($newSerial);
+                }
             }
         }
 
@@ -364,5 +403,185 @@ class Members extends BaseController
         }
 
         return $this->fail('Failed to reset password');
+    }
+
+    /**
+     * Get the member_code of the head of family for a given member_serial_num
+     * 
+     * @param int $memberSerialNum The family serial number
+     * @return string|null The member_code of the head of family, or null if not found
+     */
+    private function getHeadOfFamilyCode($memberSerialNum)
+    {
+        $db = \Config\Database::connect();
+        
+        // Try to get the member with member_order = 1
+        $query = $db->query(
+            "SELECT member_code FROM members WHERE member_serial_num = ? AND member_order = 1 LIMIT 1",
+            [$memberSerialNum]
+        );
+        $result = $query->getRow();
+        
+        if ($result && isset($result->member_code)) {
+            return $result->member_code;
+        }
+        
+        // Fallback: get the earliest created member in this family
+        $query = $db->query(
+            "SELECT member_code FROM members WHERE member_serial_num = ? ORDER BY created_at ASC LIMIT 1",
+            [$memberSerialNum]
+        );
+        $result = $query->getRow();
+        
+        return $result && isset($result->member_code) ? $result->member_code : null;
+    }
+
+    /**
+     * Lookup member by member_code only (for public member lookup page)
+     * This endpoint restricts search to member_code only for security
+     * 
+     * @return Response JSON response with member details and family members
+     */
+    public function lookup()
+    {
+        $model = new MemberModel();
+        
+        $memberCode = $this->request->getVar('memberCode');
+        
+        if (!$memberCode) {
+            return $this->fail('memberCode is required', 400);
+        }
+
+        // Search only by member_code (exact match)
+        $member = $model->where('member_code', $memberCode)->first();
+
+        if (!$member) {
+            return $this->failNotFound('Member not found with the provided member code');
+        }
+
+        unset($member['password']);
+
+        // Cast boolean fields
+        $member['baptism_status'] = (bool)$member['baptism_status'];
+        $member['confirmation_status'] = (bool)$member['confirmation_status'];
+        $member['marital_status'] = (bool)$member['marital_status'];
+        $member['residential_status'] = (bool)$member['residential_status'];
+
+        // Transform to camelCase
+        $member = $this->transformToCamelCase($member);
+
+        // Fetch family members
+        $familyMembers = [];
+        if (!empty($member['memberSerialNum'])) {
+            $familyMembersRaw = $model->where('member_serial_num', $member['memberSerialNum'])
+                                   ->orderBy('member_order', 'ASC')
+                                   ->findAll();
+            
+            // Cast boolean fields and transform for family members
+            foreach ($familyMembersRaw as &$fm) {
+                unset($fm['password']);
+                $fm['baptism_status'] = (bool)$fm['baptism_status'];
+                $fm['confirmation_status'] = (bool)$fm['confirmation_status'];
+                $fm['marital_status'] = (bool)$fm['marital_status'];
+                $fm['residential_status'] = (bool)$fm['residential_status'];
+                $fm['is_head_of_family'] = (bool)$fm['is_head_of_family'];
+                $familyMembers[] = $this->transformToCamelCase($fm);
+            }
+        }
+        $member['familyMembers'] = $familyMembers;
+
+        return $this->respond([
+            'success' => true,
+            'data' => $member
+        ]);
+    }
+
+
+    /**
+     * Transform array keys from snake_case to camelCase
+     * 
+     * @param array $data The data array to transform
+     * @return array The transformed array with camelCase keys
+     */
+    private function transformToCamelCase($data)
+    {
+        $transformed = [];
+        foreach ($data as $key => $value) {
+            // Convert snake_case to camelCase
+            $camelKey = lcfirst(str_replace('_', '', ucwords($key, '_')));
+            $transformed[$camelKey] = $value;
+        }
+        return $transformed;
+    }
+
+    /**
+     * Set a member as the head of their family
+     */
+    public function setFamilyHead($id)
+    {
+        $model = new MemberModel();
+        $member = $model->find($id);
+
+        if (!$member) {
+            return $this->failNotFound('Member not found');
+        }
+
+        // Get all family members with the same member_serial_num
+        $familyMembers = $model->where('member_serial_num', $member['member_serial_num'])->findAll();
+
+        if (empty($familyMembers)) {
+            return $this->fail('No family members found');
+        }
+
+        // Set all family members' is_head_of_family to false
+        foreach ($familyMembers as $familyMember) {
+            $model->update($familyMember['id'], ['is_head_of_family' => false]);
+        }
+
+        // Set the selected member as head of family
+        $model->update($id, ['is_head_of_family' => true]);
+
+        // Return updated family data with proper transformation
+        $updatedFamilyRaw = $model->where('member_serial_num', $member['member_serial_num'])->findAll();
+        
+        $updatedFamily = [];
+        foreach ($updatedFamilyRaw as $fm) {
+            unset($fm['password']);
+            $fm['baptism_status'] = (bool)$fm['baptism_status'];
+            $fm['confirmation_status'] = (bool)$fm['confirmation_status'];
+            $fm['marital_status'] = (bool)$fm['marital_status'];
+            $fm['residential_status'] = (bool)$fm['residential_status'];
+            $fm['is_head_of_family'] = (bool)$fm['is_head_of_family'];
+            $updatedFamily[] = $this->transformToCamelCase($fm);
+        }
+
+        return $this->respond([
+            'success' => true,
+            'message' => 'Family head updated successfully',
+            'data' => $updatedFamily
+        ]);
+    }
+
+    /**
+     * Delete a member
+     */
+    public function delete($id)
+    {
+        $model = new MemberModel();
+        $member = $model->find($id);
+
+        if (!$member) {
+            return $this->failNotFound('Member not found');
+        }
+
+        // Delete the member
+        if ($model->delete($id)) {
+            return $this->respond([
+                'success' => true,
+                'message' => 'Member deleted successfully'
+            ]);
+        } else {
+            return $this->fail('Failed to delete member');
+        }
     }
 }

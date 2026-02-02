@@ -6,6 +6,7 @@ use App\Controllers\BaseController;
 use CodeIgniter\API\ResponseTrait;
 use App\Models\OfferingModel;
 use App\Models\MemberModel;
+use App\Models\OfferingHistoryModel;
 
 class Offerings extends BaseController
 {
@@ -31,9 +32,13 @@ class Offerings extends BaseController
         if ($search) {
             $builder->groupStart()
                 ->like('member_name', $search)
+                ->orLike('member_code', $search)
                 ->orLike('offer_type', $search)
                 ->orLike('payment_mode', $search)
+                ->orLike('receipt_number', $search)
                 ->orLike('amount', $search)
+                ->orLike('notes', $search)
+                ->orLike('date', $search)
                 ->groupEnd();
         }
 
@@ -57,21 +62,24 @@ class Offerings extends BaseController
             $builder->where('payment_mode', $paymentMode);
         }
 
-        $total = $builder->countAllResults(false);
-        $totalAmount = $builder->selectSum('amount')->get()->getRow()->amount ?? 0;
+        // Clone builder for total count and sum calculation before applying limits
+        $countBuilder = clone $builder;
+        $total = $countBuilder->countAllResults(false);
         
-        $builder = $model->builder();
-        if ($memberId) $builder->where('member_id', $memberId);
-        if ($startDate) $builder->where('date >=', $startDate);
-        if ($endDate) $builder->where('date <=', $endDate);
-        if ($offerType && $offerType !== 'all') $builder->where('offer_type', $offerType);
-        if ($paymentMode && $paymentMode !== 'all') $builder->where('payment_mode', $paymentMode);
-
+        $sumBuilder = clone $builder;
+        $totalAmount = $sumBuilder->selectSum('amount')->get()->getRow()->amount ?? 0;
+        
         $offerings = $builder
             ->orderBy($sortBy, $sortOrder)
             ->limit($limit, ($page - 1) * $limit)
             ->get()
             ->getResultArray();
+
+        // Cast amount to float for each offering
+        foreach ($offerings as &$offering) {
+            $offering['amount'] = (float)$offering['amount'];
+        }
+        unset($offering); // Break the reference
 
         return $this->respond([
             'success' => true,
@@ -103,6 +111,10 @@ class Offerings extends BaseController
         $member = $memberModel->find($data['memberId']);
         if (!$member) {
             return $this->failNotFound('Member not found');
+        }
+
+        if ($member['member_status'] === 'suspended') {
+            return $this->fail('Cannot record offering for suspended member', 403);
         }
 
         $data['member_id'] = $data['memberId'];
@@ -143,6 +155,8 @@ class Offerings extends BaseController
     public function update($id)
     {
         $model = new OfferingModel();
+        $historyModel = new OfferingHistoryModel();
+        
         $offering = $model->find($id);
 
         if (!$offering) {
@@ -151,6 +165,32 @@ class Offerings extends BaseController
 
         $data = $this->request->getJSON(true);
         
+        // Save current state to history before update
+        $historyData = [
+            'offering_id'    => $offering['id'],
+            'amount'         => $offering['amount'],
+            'offer_type'     => $offering['offer_type'],
+            'payment_mode'   => $offering['payment_mode'],
+            'cheque_number'  => $offering['cheque_number'],
+            'transaction_id' => $offering['transaction_id'],
+            'notes'          => $offering['notes'],
+            'receipt_number' => $offering['receipt_number'],
+            'date'           => $offering['date'],
+            'edited_by'      => $this->request->getHeaderLine('X-User-Id') ?: 'a83bf033-c9cc-11f0-8918-5c879c7eebc7'
+        ];
+        
+        $historyModel->insert($historyData);
+        
+        // Map frontend camelCase to backend snake_case
+        if (isset($data['offerType'])) {
+            $data['offer_type'] = $data['offerType'];
+            unset($data['offerType']);
+        }
+        if (isset($data['paymentMode'])) {
+            $data['payment_mode'] = $data['paymentMode'];
+            unset($data['paymentMode']);
+        }
+
         // Don't allow updating certain fields
         unset($data['id'], $data['member_id'], $data['member_name'], $data['member_code'], $data['recorded_by']);
 
@@ -165,6 +205,20 @@ class Offerings extends BaseController
         }
 
         return $this->fail($model->errors());
+    }
+
+    public function history($id)
+    {
+        $historyModel = new OfferingHistoryModel();
+        
+        $history = $historyModel->where('offering_id', $id)
+            ->orderBy('created_at', 'desc')
+            ->findAll();
+
+        return $this->respond([
+            'success' => true,
+            'data' => $history
+        ]);
     }
 
     public function delete($id)
@@ -215,6 +269,12 @@ class Offerings extends BaseController
         }
 
         $offerings = $builder->orderBy('date', 'desc')->get()->getResultArray();
+
+        // Cast amount to float for each offering to prevent string concatenation issues
+        foreach ($offerings as &$offering) {
+            $offering['amount'] = (float)$offering['amount'];
+        }
+        unset($offering); // Break the reference
 
         // Calculate statistics directly
         $db = \Config\Database::connect();

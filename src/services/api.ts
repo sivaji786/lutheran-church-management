@@ -54,6 +54,7 @@ export interface LoginResponse {
         memberCode?: string;
         name?: string;
         role: string;
+        isSuperadmin?: string;
         memberStatus?: string;
         token: string;
         expiresIn: number;
@@ -327,6 +328,25 @@ class ApiClient {
         });
     }
 
+    async setFamilyHead(id: string): Promise<ApiResponse<any>> {
+        return this.request(`/members/${id}/set-family-head`, {
+            method: 'POST',
+        });
+    }
+
+    async deleteMember(id: string): Promise<ApiResponse<any>> {
+        return this.request(`/members/${id}`, {
+            method: 'DELETE',
+        });
+    }
+
+    async lookupMemberByCode(memberCode: string): Promise<ApiResponse<any>> {
+        const queryParams = new URLSearchParams();
+        queryParams.append('memberCode', memberCode);
+        return this.request(`/members/lookup?${queryParams.toString()}`);
+    }
+
+
     // Offerings
     async getOfferings(params?: {
         page?: number;
@@ -367,6 +387,12 @@ class ApiClient {
     async deleteOffering(id: string): Promise<ApiResponse<any>> {
         return this.request(`/offerings/${id}`, {
             method: 'DELETE',
+        });
+    }
+
+    async getOfferingHistory(id: string): Promise<ApiResponse<any>> {
+        return this.request(`/offerings/${id}/history`, {
+            method: 'GET',
         });
     }
 
@@ -491,6 +517,59 @@ class ApiClient {
     // Dashboard
     async getDashboardStats(): Promise<ApiResponse<any>> {
         return this.request('/dashboard/stats');
+    }
+
+    // Admin
+    async getAdminProfile(): Promise<ApiResponse<any>> {
+        return this.request('/admin/profile');
+    }
+
+    async updateAdminProfile(data: { name?: string; email?: string }): Promise<ApiResponse<any>> {
+        return this.request('/admin/profile', {
+            method: 'PUT',
+            body: JSON.stringify(data)
+        });
+    }
+
+    async changeAdminPassword(
+        currentPassword: string,
+        newPassword: string
+    ): Promise<ApiResponse<any>> {
+        return this.request('/admin/change-password', {
+            method: 'POST',
+            body: JSON.stringify({ currentPassword, newPassword })
+        });
+    }
+
+    // Admin Users (Church Users)
+    async getAdminUsers(): Promise<ApiResponse<any[]>> {
+        return this.request('/admin-users');
+    }
+
+    async createAdminUser(data: any): Promise<ApiResponse<any>> {
+        return this.request('/admin-users', {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+    }
+
+    async updateAdminUser(id: string, data: any): Promise<ApiResponse<any>> {
+        return this.request(`/admin-users/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(data)
+        });
+    }
+
+    async deleteAdminUser(id: string): Promise<ApiResponse<any>> {
+        return this.request(`/admin-users/${id}`, {
+            method: 'DELETE'
+        });
+    }
+
+    async resetAdminUserPassword(id: string): Promise<ApiResponse<any>> {
+        return this.request(`/admin-users/${id}/reset-password`, {
+            method: 'POST'
+        });
     }
 }
 

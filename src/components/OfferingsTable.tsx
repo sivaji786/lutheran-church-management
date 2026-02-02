@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { storage } from '../utils/localStorage';
-import { DollarSign, Filter, Search, Download, ChevronLeft, ChevronRight, FileDown, X } from 'lucide-react';
+import { DollarSign, Filter, Search, Download, ChevronLeft, ChevronRight, FileDown, X, Pencil, History } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Badge } from './ui/badge';
 import { Card } from './ui/card';
@@ -14,9 +14,9 @@ import { toast } from 'sonner';
 export type OfferingFilters = {
   page: number;
   limit: number;
-  search: string;
-  offerType: string;
-  paymentMode: string;
+  search?: string;
+  offerType?: string;
+  paymentMode?: string;
   startDate?: string;
   endDate?: string;
 };
@@ -27,9 +27,11 @@ type OfferingsTableProps = {
   offerings: Offering[];
   totalRecords: number;
   onFilterChange: (filters: OfferingFilters) => void;
+  onEditOffering?: (offering: Offering) => void;
+  onViewHistory?: (offering: Offering) => void;
 };
 
-export function OfferingsTable({ offerings, totalRecords, onFilterChange }: OfferingsTableProps) {
+export function OfferingsTable({ offerings, totalRecords, onFilterChange, onEditOffering, onViewHistory }: OfferingsTableProps) {
   const [filterType, setFilterType] = useState<string>('all');
   const [filterPaymentMode, setFilterPaymentMode] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -133,14 +135,15 @@ export function OfferingsTable({ offerings, totalRecords, onFilterChange }: Offe
       return;
     }
 
-    const headers = ['Date', 'Member Code', 'Member Name', 'Offer Type', 'Amount (₹)', 'Payment Mode'];
+    const headers = ['Date', 'Member Code', 'Member Name', 'Offer Type', 'Amount (₹)', 'Payment Mode', 'Notes'];
     const csvData = offerings.map(offering => [
       new Date(offering.date).toLocaleDateString('en-IN'),
       offering.memberCode || '',
       offering.memberName,
       offering.offerType,
       offering.amount.toString(),
-      offering.paymentMode
+      offering.paymentMode,
+      offering.notes || ''
     ]);
 
     const csvContent = [
@@ -177,7 +180,8 @@ export function OfferingsTable({ offerings, totalRecords, onFilterChange }: Offe
         'Member Name': offering.memberName,
         'Offer Type': offering.offerType,
         'Amount (₹)': offering.amount,
-        'Payment Mode': offering.paymentMode
+        'Payment Mode': offering.paymentMode,
+        'Notes': offering.notes || ''
       }));
 
       // Create worksheet
@@ -190,7 +194,8 @@ export function OfferingsTable({ offerings, totalRecords, onFilterChange }: Offe
         { wch: 25 }, // Member Name
         { wch: 20 }, // Offer Type
         { wch: 15 }, // Amount
-        { wch: 15 }  // Payment Mode
+        { wch: 15 }, // Payment Mode
+        { wch: 30 }  // Notes
       ];
 
       // Create workbook
@@ -294,6 +299,7 @@ export function OfferingsTable({ offerings, totalRecords, onFilterChange }: Offe
                 <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
                 <SelectItem value="Cheque">Cheque</SelectItem>
                 <SelectItem value="Card">Card</SelectItem>
+                <SelectItem value="Cover">Cover</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -388,11 +394,14 @@ export function OfferingsTable({ offerings, totalRecords, onFilterChange }: Offe
                 <TableRow className="bg-slate-50">
                   <TableHead className="w-12">#</TableHead>
                   <TableHead>Date</TableHead>
+                  <TableHead>Receipt No</TableHead>
                   <TableHead>Member Code</TableHead>
                   <TableHead>Member</TableHead>
                   <TableHead>Offer Type</TableHead>
                   <TableHead>Payment Mode</TableHead>
                   <TableHead>Amount</TableHead>
+                  <TableHead>Notes</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -408,6 +417,9 @@ export function OfferingsTable({ offerings, totalRecords, onFilterChange }: Offe
                         year: 'numeric',
                       })}
                     </TableCell>
+                    <TableCell className="text-slate-500 font-mono text-xs">
+                      {offering.receiptNumber}
+                    </TableCell>
                     <TableCell className="font-medium text-slate-700">{offering.memberCode}</TableCell>
                     <TableCell className="text-slate-900">{offering.memberName}</TableCell>
                     <TableCell>
@@ -422,6 +434,35 @@ export function OfferingsTable({ offerings, totalRecords, onFilterChange }: Offe
                     </TableCell>
                     <TableCell className="text-green-700">
                       ₹{offering.amount.toLocaleString('en-IN')}
+                    </TableCell>
+                    <TableCell className="text-slate-600 max-w-xs truncate" title={offering.notes || ''}>
+                      {offering.notes || <span className="text-slate-400 italic">-</span>}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        {onViewHistory && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                            onClick={() => onViewHistory(offering)}
+                            title="View Edit History"
+                          >
+                            <History className="w-4 h-4" />
+                          </Button>
+                        )}
+                        {onEditOffering && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                            onClick={() => onEditOffering(offering)}
+                            title="Edit Offering"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

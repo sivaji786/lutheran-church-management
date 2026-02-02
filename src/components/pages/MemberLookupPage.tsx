@@ -18,9 +18,18 @@ export function MemberLookupPage() {
     const [offerings, setOfferings] = useState<Offering[]>([]);
     const [hasSearched, setHasSearched] = useState(false);
 
+    // Utility function to mask mobile number - show only last 4 digits
+    const maskMobileNumber = (mobile: string | undefined) => {
+        if (!mobile) return 'N/A';
+        if (mobile.length < 4) return mobile;
+        const lastFour = mobile.slice(-4);
+        const masked = 'X'.repeat(mobile.length - 4);
+        return masked + lastFour;
+    };
+
     const handleSearch = async () => {
         if (!searchTerm.trim()) {
-            toast.error('Please enter a mobile number or member code');
+            toast.error('Please enter a member code');
             return;
         }
 
@@ -31,43 +40,27 @@ export function MemberLookupPage() {
         setHasSearched(true);
 
         try {
-            // First search for the member
-            const memberRes = await apiClient.getMembers({
-                search: searchTerm,
-                limit: 1
-            });
+            // Use the new lookup API that searches only by member_code
+            const detailRes = await apiClient.lookupMemberByCode(searchTerm.trim());
 
-            if (memberRes.success && memberRes.data.members && memberRes.data.members.length > 0) {
-                // We found a match (or partial match, use the first one)
-                // Ideally the API should support exact match or we filter client side if needed
-                const foundListMember = memberRes.data.members[0];
+            if (detailRes.success && detailRes.data) {
+                const memberData = detailRes.data;
+                setMember(memberData);
 
-                // Now fetch full details for this member
-                if (foundListMember.id) {
-                    const detailRes = await apiClient.getMember(foundListMember.id);
-
-                    if (detailRes.success && detailRes.data) {
-                        const memberData = detailRes.data;
-                        setMember(memberData);
-
-                        // Set family members
-                        if (memberData.familyMembers) {
-                            setFamilyMembers(memberData.familyMembers);
-                        }
-
-                        // Fetch offerings
-                        const offeringsRes = await apiClient.getMemberOfferings(memberData.id);
-                        if (offeringsRes.success && offeringsRes.data.offerings) {
-                            setOfferings(offeringsRes.data.offerings);
-                        }
-                    }
+                // Set family members
+                if (memberData.familyMembers) {
+                    setFamilyMembers(memberData.familyMembers);
                 }
-            } else {
-                toast.error('No member found with that details');
+
+                // Fetch offerings
+                const offeringsRes = await apiClient.getMemberOfferings(memberData.id);
+                if (offeringsRes.success && offeringsRes.data.offerings) {
+                    setOfferings(offeringsRes.data.offerings);
+                }
             }
         } catch (error) {
             console.error('Search error:', error);
-            toast.error('An error occurred while searching');
+            toast.error('No member found with that member code');
         } finally {
             setLoading(false);
         }
@@ -107,26 +100,53 @@ export function MemberLookupPage() {
                 <div className="max-w-5xl mx-auto space-y-8">
 
                     {/* Header & Search */}
-                    <div className="text-center space-y-6">
-                        <h1 className="text-3xl font-bold text-blue-900">Member Lookup</h1>
-                        <div className="flex max-w-md mx-auto gap-2">
-                            <Input
-                                placeholder="Enter Mobile Number or Member Code"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                onKeyDown={handleKeyPress}
-                                className="bg-white"
-                            />
-                            <Button onClick={handleSearch} disabled={loading} className="bg-blue-600 hover:bg-blue-700">
-                                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Go'}
-                            </Button>
-                            {(hasSearched || searchTerm) && (
-                                <Button onClick={handleClear} variant="outline" className="border-slate-300 text-slate-500 hover:text-slate-700 hover:bg-slate-100" title="Clear Search">
-                                    <X className="w-4 h-4" />
+                    {!member && !hasSearched ? (
+                        // Initial state - centered and prominent
+                        <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-8">
+                            <div className="text-center space-y-4">
+                                <h1 className="text-4xl md:text-5xl font-bold text-blue-900">Member Lookup</h1>
+                                <p className="text-slate-600 text-lg">Enter member code to search</p>
+                            </div>
+                            <div className="flex max-w-2xl w-full gap-3 px-4">
+                                <Input
+                                    placeholder="Enter Member Code"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    onKeyDown={handleKeyPress}
+                                    className="bg-white h-14 text-lg px-6 border-2 border-slate-300 focus:border-blue-500"
+                                />
+                                <Button
+                                    onClick={handleSearch}
+                                    disabled={loading}
+                                    className="bg-blue-600 hover:bg-blue-700 h-14 w-24 border-1 border-blue-600 px-8 text-lg"
+                                >
+                                    {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Go'}
                                 </Button>
-                            )}
+                            </div>
                         </div>
-                    </div>
+                    ) : (
+                        // Search with results or after search
+                        <div className="text-center space-y-6">
+                            <h1 className="text-3xl font-bold text-blue-900">Member Lookup</h1>
+                            <div className="flex max-w-xl mx-auto gap-2">
+                                <Input
+                                    placeholder="Enter Mobile Number or Member Code"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    onKeyDown={handleKeyPress}
+                                    className="bg-white h-12 text-base border-2 border-slate-300 focus:border-blue-500"
+                                />
+                                <Button onClick={handleSearch} disabled={loading} className="bg-blue-600 hover:bg-blue-700 h-12">
+                                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Go'}
+                                </Button>
+                                {(hasSearched || searchTerm) && (
+                                    <Button onClick={handleClear} variant="outline" className="border-slate-300 text-slate-500 hover:text-slate-700 hover:bg-slate-100 h-12" title="Clear Search">
+                                        <X className="w-4 h-4" />
+                                    </Button>
+                                )}
+                            </div>
+                        </div>
+                    )}
 
                     {/* Results */}
                     {member ? (
@@ -154,7 +174,7 @@ export function MemberLookupPage() {
                                         </div>
                                         <div>
                                             <p className="text-sm font-medium text-slate-500">Mobile</p>
-                                            <p className="text-base text-slate-900">{member.mobile || 'N/A'}</p>
+                                            <p className="text-base text-slate-900 font-mono">{maskMobileNumber(member.mobile)}</p>
                                         </div>
                                         <div>
                                             <p className="text-sm font-medium text-slate-500">Status</p>
@@ -208,7 +228,7 @@ export function MemberLookupPage() {
                                                                 <span className="text-slate-500 text-sm">Family Member</span>
                                                             )}
                                                         </TableCell>
-                                                        <TableCell>{fm.mobile || '-'}</TableCell>
+                                                        <TableCell>{maskMobileNumber(fm.mobile)}</TableCell>
                                                     </TableRow>
                                                 ))
                                             ) : (
@@ -239,6 +259,7 @@ export function MemberLookupPage() {
                                                     <TableHead>Date</TableHead>
                                                     <TableHead>Type</TableHead>
                                                     <TableHead>Payment Mode</TableHead>
+                                                    <TableHead>Notes</TableHead>
                                                     <TableHead className="text-right">Amount</TableHead>
                                                 </TableRow>
                                             </TableHeader>
@@ -251,6 +272,7 @@ export function MemberLookupPage() {
                                                             </TableCell>
                                                             <TableCell>{offering.offerType}</TableCell>
                                                             <TableCell>{offering.paymentMode}</TableCell>
+                                                            <TableCell className="text-slate-600 text-sm">{offering.notes || '-'}</TableCell>
                                                             <TableCell className="text-right font-bold text-green-700">
                                                                 ₹{Number(offering.amount).toLocaleString()}
                                                             </TableCell>
@@ -258,7 +280,7 @@ export function MemberLookupPage() {
                                                     ))
                                                 ) : (
                                                     <TableRow>
-                                                        <TableCell colSpan={4} className="text-center py-6 text-slate-500">
+                                                        <TableCell colSpan={5} className="text-center py-6 text-slate-500">
                                                             No offerings recorded
                                                         </TableCell>
                                                     </TableRow>

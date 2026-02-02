@@ -17,7 +17,7 @@ type LoginPageProps = {
 export function LoginPage({ onLogin }: LoginPageProps) {
   const [adminUsername, setAdminUsername] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
-  const [memberIdentifier, setMemberIdentifier] = useState(''); // Can be mobile or member code
+  const [memberCode, setMemberCode] = useState('');
   const [memberPassword, setMemberPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -30,7 +30,11 @@ export function LoginPage({ onLogin }: LoginPageProps) {
       const response = await apiClient.adminLogin(adminUsername, adminPassword);
 
       if (response.success) {
-        onLogin({ type: 'admin' });
+        onLogin({
+          type: 'admin',
+          token: response.data.token,
+          isSuperadmin: response.data.isSuperadmin
+        });
         toast.success('Welcome Admin!');
       }
     } catch (error: any) {
@@ -47,11 +51,8 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     try {
       const { apiClient } = await import('../../services/api');
 
-      // Auto-detect if it's a mobile number (all digits) or member code
-      const isNumeric = /^\d+$/.test(memberIdentifier);
-      const loginType = isNumeric ? 'mobile' : 'memberCode';
-
-      const response = await apiClient.memberLogin(memberIdentifier, loginType, memberPassword);
+      // Always use memberCode as the identifier type
+      const response = await apiClient.memberLogin(memberCode, 'memberCode', memberPassword);
 
       if (response.success) {
         onLogin({ type: 'member', memberCode: response.data.memberCode });
@@ -141,23 +142,23 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                       <TabsContent value="member" className="space-y-6">
                         <form onSubmit={handleMemberLogin} className="space-y-5">
                           <div className="space-y-2">
-                            <Label htmlFor="member-identifier" className="text-slate-700">
-                              Mobile Number or Member Code
+                            <Label htmlFor="member-code" className="text-slate-700">
+                              Member Code
                             </Label>
                             <div className="relative">
                               <UserCircle className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                               <Input
-                                id="member-identifier"
+                                id="member-code"
                                 type="text"
-                                placeholder="Enter mobile number or member code"
-                                value={memberIdentifier}
-                                onChange={(e) => setMemberIdentifier(e.target.value.trim())}
+                                placeholder="Enter your member code"
+                                value={memberCode}
+                                onChange={(e) => setMemberCode(e.target.value.trim().toUpperCase())}
                                 className="pl-11 h-12"
                                 required
                               />
                             </div>
                             <p className="text-xs text-slate-500">
-                              You can use either your mobile number or member code to sign in
+                              Use your assigned member code to sign in
                             </p>
                           </div>
 
@@ -244,16 +245,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                       </TabsContent>
                     </Tabs>
 
-                    <div className="mt-6 pt-6 border-t border-slate-100 text-center">
-                      <p className="text-slate-600 mb-2">Need to find a member?</p>
-                      <a
-                        href="#/lookup"
-                        className="text-blue-600 hover:text-blue-700 font-medium inline-flex items-center gap-1 hover:underline"
-                      >
-                        <UserCircle className="w-4 h-4" />
-                        Go to Member Lookup
-                      </a>
-                    </div>
+
                   </CardContent>
                 </Card>
               </div>

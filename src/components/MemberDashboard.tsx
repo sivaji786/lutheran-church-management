@@ -40,7 +40,7 @@ export function MemberDashboard({
   // For members, offerings and tickets come from props (empty arrays)
   // They don't need to see this data in member portal
   const memberOfferings = offerings.filter((o) => o.memberId === member?.id);
-  const totalOfferings = memberOfferings.reduce((sum, offering) => sum + offering.amount, 0);
+  const totalOfferings = memberOfferings.reduce((sum, offering) => sum + Number(offering.amount), 0);
   const memberTickets = tickets.filter((t) => t.memberId === member?.id);
   const familyMembers = members.filter(m => m.memberSerialNum === member?.memberSerialNum).sort((a, b) => (a.memberOrder || 0) - (b.memberOrder || 0));
 
@@ -233,7 +233,7 @@ export function MemberDashboard({
                       </div>
                       <div className="space-y-1">
                         <p className="text-slate-500 text-sm">Date of Birth</p>
-                        <p className="text-slate-900">{new Date(member.dateOfBirth).toLocaleDateString('en-IN')}</p>
+                        <p className="text-slate-900">{member.dateOfBirth ? new Date(member.dateOfBirth).toLocaleDateString('en-IN') : '-'}</p>
                       </div>
                     </div>
                   </CardContent>
@@ -264,6 +264,9 @@ export function MemberDashboard({
                                   year: 'numeric',
                                 })} • {offering.paymentMode}
                               </p>
+                              {offering.notes && (
+                                <p className="text-slate-600 text-sm mt-1 italic">{offering.notes}</p>
+                              )}
                             </div>
                             <p className="text-green-900">₹{offering.amount.toLocaleString('en-IN')}</p>
                           </div>
@@ -322,7 +325,7 @@ export function MemberDashboard({
                       </div>
                       <div className="space-y-2">
                         <p className="text-slate-500 text-sm uppercase tracking-wide">Date of Birth</p>
-                        <p className="text-slate-900 text-lg">{new Date(member.dateOfBirth).toLocaleDateString('en-IN')}</p>
+                        <p className="text-slate-900 text-lg">{member.dateOfBirth ? new Date(member.dateOfBirth).toLocaleDateString('en-IN') : '-'}</p>
                       </div>
                     </div>
                   </CardContent>
@@ -404,15 +407,15 @@ export function MemberDashboard({
                                 )}
                               </TableCell>
                               <TableCell>
-                                {fm.memberOrder === 1 ? 'Head of Family' : 'Member'}
+                                {fm.isHeadOfFamily === "1" ? 'Head of Family' : 'Member'}
                               </TableCell>
                               <TableCell>{fm.mobile || '-'}</TableCell>
                               <TableCell>
-                                {new Date(fm.dateOfBirth).toLocaleDateString('en-IN', {
+                                {fm.dateOfBirth ? new Date(fm.dateOfBirth).toLocaleDateString('en-IN', {
                                   day: 'numeric',
                                   month: 'short',
                                   year: 'numeric'
-                                })}
+                                }) : '-'}
                               </TableCell>
                               <TableCell>
                                 <Badge variant={fm.memberStatus === 'confirmed' ? 'default' : 'secondary'}
@@ -462,6 +465,7 @@ export function MemberDashboard({
                               <TableHead>Offer Type</TableHead>
                               <TableHead>Amount</TableHead>
                               <TableHead>Payment Mode</TableHead>
+                              <TableHead>Notes</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -483,6 +487,7 @@ export function MemberDashboard({
                                   ₹{offering.amount.toLocaleString('en-IN')}
                                 </TableCell>
                                 <TableCell className="text-slate-600">{offering.paymentMode}</TableCell>
+                                <TableCell className="text-slate-600 text-sm">{offering.notes || '-'}</TableCell>
                               </TableRow>
                             ))}
                           </TableBody>

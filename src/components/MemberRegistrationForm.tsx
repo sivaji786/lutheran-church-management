@@ -6,7 +6,6 @@ import { Textarea } from './ui/textarea';
 import { Switch } from './ui/switch';
 import { Card } from './ui/card';
 import { Member } from '../App';
-import { toast } from 'sonner';
 
 type MemberRegistrationFormProps = {
   onAddMember: (member: Member) => Promise<Member | null>;
@@ -126,13 +125,13 @@ export function MemberRegistrationForm({ onAddMember, existingMembers }: MemberR
         {/* Row 2: DOB and Mobile */}
         <div className="grid md:grid-cols-2 gap-6">
           <div className="space-y-2">
-            <Label htmlFor="dateOfBirth">Date of Birth *</Label>
+            <Label htmlFor="dateOfBirth">Date of Birth</Label>
             <Input
               id="dateOfBirth"
               type="date"
               value={dateOfBirth}
               onChange={(e) => setDateOfBirth(e.target.value)}
-              required
+              max={new Date().toISOString().split('T')[0]}
             />
           </div>
 
@@ -141,10 +140,11 @@ export function MemberRegistrationForm({ onAddMember, existingMembers }: MemberR
             <Input
               id="mobile"
               type="tel"
-              placeholder="Enter 10-digit mobile number"
+              placeholder="Enter 10-digit or 13-digit (+91) number"
               value={mobile}
-              onChange={(e) => setMobile(e.target.value)}
-              pattern="[0-9]{10}"
+              onChange={(e) => setMobile(e.target.value.replace(/[^\d+]/g, ''))}
+              pattern="^(\+\d{12}|\d{10})$"
+              maxLength={mobile.startsWith('+') ? 13 : 10}
               required
             />
           </div>
@@ -165,16 +165,15 @@ export function MemberRegistrationForm({ onAddMember, existingMembers }: MemberR
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="aadharNumber">Aadhar Number *</Label>
+            <Label htmlFor="aadharNumber">Aadhar Number (Optional)</Label>
             <Input
               id="aadharNumber"
               type="text"
-              placeholder="Enter 12-digit Aadhar number"
+              placeholder="Enter 12-digit Aadhar number (optional)"
               value={aadharNumber}
-              onChange={(e) => setAadharNumber(e.target.value)}
+              onChange={(e) => setAadharNumber(e.target.value.replace(/\D/g, ''))}
               pattern="[0-9]{12}"
               maxLength={12}
-              required
             />
           </div>
         </div>

@@ -22,7 +22,7 @@ class MemberModel extends Model
         'aadhar_number', 'mobile', 'address', 'area', 'ward', 'remarks',
         'member_status', 'password', 'registration_date', 'last_login',
         'failed_login_attempts', 'locked_until', 'created_by',
-        'family_id', 'member_serial_num', 'member_order', 'head_of_family'
+        'family_id', 'member_serial_num', 'member_order', 'head_of_family', 'is_head_of_family'
     ];
 
     protected bool $allowEmptyInserts = false;

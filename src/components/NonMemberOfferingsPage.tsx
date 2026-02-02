@@ -266,6 +266,7 @@ export function NonMemberOfferingsPage({ onBack }: NonMemberOfferingsPageProps) 
                                                     <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
                                                     <SelectItem value="Cheque">Cheque</SelectItem>
                                                     <SelectItem value="Card">Card</SelectItem>
+                                                    <SelectItem value="Cover">Cover</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                         </div>

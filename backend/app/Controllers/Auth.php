@@ -65,6 +65,7 @@ class Auth extends BaseController
                 'userId' => $user['id'],
                 'username' => $user['username'],
                 'role' => $user['role'],
+                'isSuperadmin' => $user['is_superadmin'],
                 'token' => $token,
                 'expiresIn' => 3600
             ]
@@ -89,13 +90,15 @@ class Auth extends BaseController
         $identifierType = $this->request->getVar('identifierType');
         $password = $this->request->getVar('password');
 
+        // Enforce member code only login
+        if ($identifierType === 'mobile') {
+            return $this->fail('Mobile number login is no longer supported. Please use your member code to sign in.', 400);
+        }
+
         $model = new MemberModel();
         
-        if ($identifierType === 'mobile') {
-            $user = $model->where('mobile', $identifier)->first();
-        } else {
-            $user = $model->where('member_code', $identifier)->first();
-        }
+        // Only allow member code login
+        $user = $model->where('member_code', $identifier)->first();
 
         if (!$user) {
             // Log failed attempt - member not found

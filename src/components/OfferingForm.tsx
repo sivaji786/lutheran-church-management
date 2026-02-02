@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -20,15 +20,26 @@ export function OfferingForm({ members, onAddOffering, preSelectedMemberId }: Of
   const [amount, setAmount] = useState('');
   const [offerType, setOfferType] = useState('');
   const [paymentMode, setPaymentMode] = useState('');
+  const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Update selectedMemberId when preSelectedMemberId prop changes
+  useEffect(() => {
+    if (preSelectedMemberId) {
+      setSelectedMemberId(preSelectedMemberId);
+    }
+  }, [preSelectedMemberId]);
+
   // Convert members to combobox options for searchable dropdown
+  // Filter to show only heads of family (where memberCode equals headOfFamily)
   const memberOptions: ComboboxOption[] = useMemo(() => {
-    return members.map((member) => ({
-      value: member.id || '',
-      label: `${member.name} (${member.memberCode})`,
-      searchText: `${member.name} ${member.memberCode} ${member.mobile || ''}`,
-    }));
+    return members
+      .filter((member) => member.memberCode === member.headOfFamily)
+      .map((member) => ({
+        value: member.id || '',
+        label: `${member.name} (${member.memberCode})`,
+        searchText: `${member.name} ${member.memberCode} ${member.mobile || ''}`,
+      }));
   }, [members]);
 
 
@@ -43,6 +54,12 @@ export function OfferingForm({ members, onAddOffering, preSelectedMemberId }: Of
       return;
     }
 
+    if (selectedMember.memberStatus === 'suspended') {
+      toast.error(`Cannot record offering for ${selectedMember.name} (Member is Suspended)`);
+      setIsSubmitting(false);
+      return;
+    }
+
     const newOffering: Offering = {
       memberId: selectedMemberId,
       memberName: selectedMember.name,
@@ -51,6 +68,7 @@ export function OfferingForm({ members, onAddOffering, preSelectedMemberId }: Of
       amount: parseFloat(amount),
       offerType,
       paymentMode,
+      notes: notes.trim() || undefined,
     };
 
     const success = await onAddOffering(newOffering);
@@ -64,6 +82,7 @@ export function OfferingForm({ members, onAddOffering, preSelectedMemberId }: Of
       setAmount('');
       setOfferType('');
       setPaymentMode('');
+      setNotes('');
     }
     setIsSubmitting(false);
   };
@@ -123,6 +142,7 @@ export function OfferingForm({ members, onAddOffering, preSelectedMemberId }: Of
                 <SelectItem value="Building Fund">Building Fund</SelectItem>
                 <SelectItem value="Mission">Mission</SelectItem>
                 <SelectItem value="Special Offering">Special Offering</SelectItem>
+                <SelectItem value="Pledge">Pledge</SelectItem>
                 <SelectItem value="Other">Other</SelectItem>
               </SelectContent>
             </Select>
@@ -141,8 +161,21 @@ export function OfferingForm({ members, onAddOffering, preSelectedMemberId }: Of
               <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
               <SelectItem value="Cheque">Cheque</SelectItem>
               <SelectItem value="Card">Card</SelectItem>
+              <SelectItem value="Cover">Cover</SelectItem>
             </SelectContent>
           </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="notes">Notes (Optional)</Label>
+          <textarea
+            id="notes"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Add any additional notes or remarks..."
+            rows={3}
+            className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-none"
+          />
         </div>
 
         <div className="flex justify-end gap-3">
@@ -155,6 +188,7 @@ export function OfferingForm({ members, onAddOffering, preSelectedMemberId }: Of
               setAmount('');
               setOfferType('');
               setPaymentMode('');
+              setNotes('');
             }}
           >
             Clear Form

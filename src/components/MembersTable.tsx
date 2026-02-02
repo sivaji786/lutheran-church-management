@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { storage } from '../utils/localStorage';
-import { User, Search, ChevronLeft, ChevronRight, FileDown, FileUp, Filter, X, ArrowUpDown, ArrowUp, ArrowDown, Settings2, Eye, EyeOff, IndianRupee } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, FileDown, FileUp, Filter, X, ArrowUpDown, ArrowUp, ArrowDown, Settings2, Eye, EyeOff, IndianRupee } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuItem } from './ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Badge } from './ui/badge';
@@ -14,16 +14,17 @@ import { toast } from 'sonner';
 export type MemberFilters = {
   page: number;
   limit: number;
-  search: string;
-  baptismStatus: string;
-  confirmationStatus: string;
-  maritalStatus: string;
-  residentialStatus: string;
-  occupation: string;
-  ward: string;
-  birthday: string;
-  sortBy: string;
-  sortOrder: string;
+  search?: string;
+  baptismStatus?: string;
+  confirmationStatus?: string;
+  maritalStatus?: string;
+  residentialStatus?: string;
+  occupation?: string;
+  ward?: string;
+  birthday?: string;
+  memberStatus?: string;
+  sortBy?: string;
+  sortOrder?: string;
 };
 
 type MembersTableProps = {
@@ -95,12 +96,13 @@ export function MembersTable({ members, totalRecords, onMemberClick, onAddOfferi
       limit: pageSize,
       search: searchTerm,
       baptismStatus: baptismFilter,
-      confirmationStatus: confirmationFilter,
+      confirmationStatus: (confirmationFilter === 'confirmed' || confirmationFilter === 'not_confirmed') ? confirmationFilter : 'all',
       maritalStatus: maritalFilter,
       residentialStatus: residentialFilter,
       occupation: occupationFilter,
       ward: wardFilter,
       birthday: birthdayFilter,
+      memberStatus: confirmationFilter === 'suspended' ? 'suspended' : 'all',
       sortBy: sortColumn,
       sortOrder: sortDirection,
     });
@@ -119,7 +121,6 @@ export function MembersTable({ members, totalRecords, onMemberClick, onAddOfferi
     setMaritalFilter('all');
     setResidentialFilter('all');
     setOccupationFilter('all');
-    setWardFilter('all');
     setWardFilter('all');
     setBirthdayFilter('all');
     setSearchTerm('');
@@ -631,6 +632,7 @@ export function MembersTable({ members, totalRecords, onMemberClick, onAddOfferi
                   <SelectItem value="all">All</SelectItem>
                   <SelectItem value="confirmed">Confirmed</SelectItem>
                   <SelectItem value="not_confirmed">Not Confirmed</SelectItem>
+                  <SelectItem value="suspended">Suspended</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -902,9 +904,15 @@ export function MembersTable({ members, totalRecords, onMemberClick, onAddOfferi
                     )}
                     {visibleColumns.confirmation && (
                       <TableCell className="text-center">
-                        <Badge variant={member.confirmationStatus ? "default" : "secondary"} className={member.confirmationStatus ? "bg-blue-100 text-blue-800" : ""}>
-                          {member.confirmationStatus ? 'Confirmed' : 'Not Confirmed'}
-                        </Badge>
+                        {member.memberStatus === 'suspended' ? (
+                          <Badge variant="destructive" className="bg-red-100 text-red-800 border-red-200">
+                            Suspended
+                          </Badge>
+                        ) : (
+                          <Badge variant={member.confirmationStatus ? "default" : "secondary"} className={member.confirmationStatus ? "bg-blue-100 text-blue-800" : ""}>
+                            {member.confirmationStatus ? 'Confirmed' : 'Not Confirmed'}
+                          </Badge>
+                        )}
                       </TableCell>
                     )}
                     {visibleColumns.marital && (
@@ -929,7 +937,7 @@ export function MembersTable({ members, totalRecords, onMemberClick, onAddOfferi
                         {member.remarks || <span className="text-slate-400 italic">NoData</span>}
                       </TableCell>
                     )}
-                    {onAddOffering && (
+                    {onAddOffering && member.memberStatus !== 'suspended' && (
                       <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                         <Button
                           size="sm"
@@ -941,6 +949,11 @@ export function MembersTable({ members, totalRecords, onMemberClick, onAddOfferi
                           <IndianRupee className="w-4 h-4 mr-1" />
                           Add Offering
                         </Button>
+                      </TableCell>
+                    )}
+                    {onAddOffering && member.memberStatus === 'suspended' && (
+                      <TableCell className="text-center">
+                        <span className="text-xs text-slate-400 italic">No Actions</span>
                       </TableCell>
                     )}
                   </TableRow>

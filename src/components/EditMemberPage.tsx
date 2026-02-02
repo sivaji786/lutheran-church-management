@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -60,8 +60,8 @@ export function EditMemberPage({
 
     if (!formData.mobile?.trim()) {
       validationErrors.push('Mobile number is required');
-    } else if (!/^\d{10}$/.test(formData.mobile)) {
-      validationErrors.push('Mobile number must be exactly 10 digits');
+    } else if (!/^(\+\d{12}|\d{10})$/.test(formData.mobile)) {
+      validationErrors.push('Mobile number must be exactly 10 digits or 13 digits with country code (+91)');
     } else {
       const mobileExists = existingMembers.some(
         m => m.mobile === formData.mobile && m.id !== member?.id
@@ -244,6 +244,7 @@ export function EditMemberPage({
                       type="date"
                       value={formData.dateOfBirth || ''}
                       onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
+                      max={new Date().toISOString().split('T')[0]}
                       className="h-11"
                     />
                   </div>
@@ -255,22 +256,24 @@ export function EditMemberPage({
                     <Input
                       id="mobile"
                       value={formData.mobile || ''}
-                      onChange={(e) => setFormData({ ...formData, mobile: e.target.value.replace(/\D/g, '') })}
-                      placeholder="10 digit mobile number"
-                      maxLength={10}
+                      onChange={(e) => setFormData({ ...formData, mobile: e.target.value.replace(/[^\d+]/g, '') })}
+                      placeholder="Enter 10-digit or 13-digit (+91) number"
+                      maxLength={formData.mobile?.startsWith('+') ? 13 : 10}
                       className="h-11"
                     />
                   </div>
 
                   <div className="space-y-2 md:col-span-2">
                     <Label htmlFor="aadharNumber" className="text-slate-900">
-                      Aadhar Number
+                      Aadhar Number (Optional)
                     </Label>
                     <Input
                       id="aadharNumber"
                       value={formData.aadharNumber || ''}
-                      onChange={(e) => setFormData({ ...formData, aadharNumber: e.target.value })}
-                      placeholder="Enter Aadhar number"
+                      onChange={(e) => setFormData({ ...formData, aadharNumber: e.target.value.replace(/\D/g, '') })}
+                      placeholder="Enter 12-digit Aadhar number (optional)"
+                      maxLength={12}
+                      pattern="[0-9]{12}"
                       className="h-11"
                     />
                   </div>

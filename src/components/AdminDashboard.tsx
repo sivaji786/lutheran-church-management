@@ -12,7 +12,11 @@ import { AdminTicketsTable, TicketFilters } from './AdminTicketsTable';
 import { TicketDetailPage } from './pages/TicketDetailPage';
 import { DashboardCharts } from './DashboardCharts';
 import { NonMemberOfferingsPage } from './NonMemberOfferingsPage';
-import { Member, Offering, Ticket as TicketType } from '../App';
+import { AdminProfilePage } from './AdminProfilePage';
+import { OfferingHistoryView } from './OfferingHistoryView';
+import { EditOfferingModal } from './EditOfferingModal';
+import ChurchUsersPage from './ChurchUsersPage';
+import { Member, Offering, Ticket as TicketType, User } from '../App';
 import { storage } from '../utils/localStorage';
 import { apiClient } from '../services/api';
 import { toast } from 'sonner';
@@ -20,13 +24,14 @@ import churchLogo from '../assets/church_logo_new.png';
 
 type AdminDashboardProps = {
   onLogout: () => void;
+  currentUser: User;
 };
 
-type MenuItem = 'dashboard' | 'members' | 'offerings' | 'tickets' | 'nonMemberOfferings';
+type MenuItem = 'dashboard' | 'members' | 'offerings' | 'tickets' | 'nonMemberOfferings' | 'profile' | 'church-users';
 type MembersView = 'list' | 'add' | 'detail' | 'edit';
-type OfferingsView = 'list' | 'add';
+type OfferingsView = 'list' | 'add' | 'history';
 
-export function AdminDashboard({ onLogout }: AdminDashboardProps) {
+export function AdminDashboard({ onLogout, currentUser }: AdminDashboardProps) {
   const [currentMenu, setCurrentMenu] = useState<MenuItem>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
@@ -35,6 +40,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const [offeringsView, setOfferingsView] = useState<OfferingsView>('list');
   const [showBirthdayFilter, setShowBirthdayFilter] = useState(false);
   const [preSelectedMemberId, setPreSelectedMemberId] = useState<string | undefined>(undefined);
+  const [selectedOfferingForAction, setSelectedOfferingForAction] = useState<Offering | null>(null);
+  const [isEditOfferingModalOpen, setIsEditOfferingModalOpen] = useState(false);
 
   // Data State
   const [members, setMembers] = useState<Member[]>([]);
@@ -42,6 +49,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const [totalMembersRecords, setTotalMembersRecords] = useState(0);
   const [offerings, setOfferings] = useState<Offering[]>([]);
   const [totalOfferingsRecords, setTotalOfferingsRecords] = useState(0);
+  const [memberOfferings, setMemberOfferings] = useState<Offering[]>([]); // For member detail view
   const [tickets, setTickets] = useState<TicketType[]>([]);
   const [totalTicketsRecords, setTotalTicketsRecords] = useState(0);
 
@@ -149,13 +157,34 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     try {
       const response = await apiClient.createOffering(offering);
       if (response.success) {
-        toast.success('Offering recorded successfully');
+        toast.success(response.message || 'Offering recorded successfully');
+        fetchOfferings({ page: 1, limit: 10 }); // Refresh list
         fetchDashboardStats(); // Refresh stats
         return true;
+      } else {
+        toast.error(response.message || 'Failed to record offering');
+        return false;
       }
-      return false;
     } catch (error: any) {
-      toast.error(error.message || 'Failed to add offering');
+      toast.error(error.message || 'Failed to record offering');
+      return false;
+    }
+  };
+
+  const handleUpdateOffering = async (id: string, data: any) => {
+    try {
+      const response = await apiClient.updateOffering(id, data);
+      if (response.success) {
+        toast.success(response.message || 'Offering updated successfully');
+        fetchOfferings({ page: 1, limit: 10 }); // Refresh list
+        fetchDashboardStats(); // Refresh stats
+        return true;
+      } else {
+        toast.error(response.message || 'Failed to update offering');
+        return false;
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to update offering');
       return false;
     }
   };
@@ -188,21 +217,52 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       const response = await apiClient.updateMemberStatus(memberId, status);
       if (response.success) {
         toast.success('Member status updated');
-        fetchDashboardStats(); // Refresh stats
+
+        // Update selectedMember if it's the one being changed
+        if (selectedMember && selectedMember.id === memberId) {
+          setSelectedMember({ ...selectedMember, memberStatus: status });
+        }
+
+        // Update member in the list
+        setMembers(prev => prev.map(m => m.id === memberId ? { ...m, memberStatus: status } : m));
+
+        // Refresh dashboard stats
+        fetchDashboardStats();
       }
     } catch (error) {
       toast.error('Failed to update status');
     }
   };
 
-  const handleResetPassword = async (memberId: string, newPassword: string) => {
+  const handleResetPassword = async (memberId: string) => {
     try {
-      const response = await apiClient.resetMemberPassword(memberId, newPassword, newPassword);
+      const response = await apiClient.resetMemberPassword(memberId, 'Welcome@123', 'Welcome@123');
       if (response.success) {
-        toast.success('Password reset successfully');
+        toast.success('Password reset successfully. New password sent to member.');
+      } else {
+        toast.error(response.message || 'Failed to reset password');
       }
     } catch (error) {
       toast.error('Failed to reset password');
+    }
+  };
+
+  const handleDeleteMember = async (memberId: string) => {
+    try {
+      const response = await apiClient.deleteMember(memberId);
+      if (response.success) {
+        toast.success('Member deleted successfully');
+        // Go back to members list
+        setMembersView('list');
+        setSelectedMember(null);
+        setMemberOfferings([]);
+        // Refresh members list
+        fetchMembers({ page: 1, limit: 10, search: '', baptismStatus: 'all', confirmationStatus: 'all', maritalStatus: 'all', residentialStatus: 'all', occupation: 'all', ward: 'all', birthday: 'all', sortBy: 'created_at', sortOrder: 'desc' });
+      } else {
+        toast.error(response.message || 'Failed to delete member');
+      }
+    } catch (error) {
+      toast.error('Failed to delete member');
     }
   };
 
@@ -251,6 +311,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     { id: 'offerings' as MenuItem, label: 'Offerings', icon: DollarSign },
     { id: 'nonMemberOfferings' as MenuItem, label: 'Guest Offerings', icon: HandCoins },
     { id: 'tickets' as MenuItem, label: 'Tickets', icon: Ticket },
+    { id: 'profile' as MenuItem, label: 'My Profile', icon: UserPlus },
+    ...(currentUser.isSuperadmin === 'yes' ? [{ id: 'church-users' as MenuItem, label: 'Church Users', icon: Users }] : []),
   ];
 
   const handleMenuClick = (menuId: MenuItem) => {
@@ -595,6 +657,14 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                           offerings={offerings}
                           totalRecords={totalOfferingsRecords}
                           onFilterChange={fetchOfferings}
+                          onEditOffering={(offering) => {
+                            setSelectedOfferingForAction(offering);
+                            setIsEditOfferingModalOpen(true);
+                          }}
+                          onViewHistory={(offering) => {
+                            setSelectedOfferingForAction(offering);
+                            setOfferingsView('history');
+                          }}
                         />
                       </CardContent>
                     </Card>
@@ -634,6 +704,15 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                     </Card>
                   </div>
                 )}
+                {offeringsView === 'history' && selectedOfferingForAction && (
+                  <OfferingHistoryView
+                    offering={selectedOfferingForAction}
+                    onBack={() => {
+                      setOfferingsView('list');
+                      setSelectedOfferingForAction(null);
+                    }}
+                  />
+                )}
               </div>
             )}
 
@@ -665,6 +744,11 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                               const response = await apiClient.getMember(member.id!);
                               if (response.success && response.data) {
                                 setSelectedMember(response.data);
+                                // Fetch offerings for this member
+                                const offeringsRes = await apiClient.getMemberOfferings(member.id!);
+                                if (offeringsRes.success && offeringsRes.data.offerings) {
+                                  setMemberOfferings(offeringsRes.data.offerings);
+                                }
                                 setMembersView('detail');
                               } else {
                                 toast.error('Failed to load member details');
@@ -716,20 +800,25 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                 {membersView === 'detail' && selectedMember && (
                   <MemberDetailView
                     member={selectedMember}
-                    offerings={[]} // Need to fetch these on demand in the view or pass from server
+                    offerings={memberOfferings}
                     onUpdateMemberStatus={handleUpdateMemberStatus}
                     onResetPassword={handleResetPassword}
                     onEditMember={() => setMembersView('edit')}
                     onBack={() => {
                       setMembersView('list');
                       setSelectedMember(null);
+                      setMemberOfferings([]); // Clear offerings when leaving detail view
                     }}
                     onMemberClick={async (member) => {
                       try {
                         const response = await apiClient.getMember(member.id!);
                         if (response.success && response.data) {
                           setSelectedMember(response.data);
-                          // View is already 'detail', so just updating selectedMember is enough
+                          // Fetch offerings for the new member
+                          const offeringsRes = await apiClient.getMemberOfferings(member.id!);
+                          if (offeringsRes.success && offeringsRes.data.offerings) {
+                            setMemberOfferings(offeringsRes.data.offerings);
+                          }
                           window.scrollTo(0, 0); // Scroll to top
                         } else {
                           toast.error('Failed to load member details');
@@ -738,6 +827,23 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                         toast.error('Failed to load member details');
                       }
                     }}
+                    onSetFamilyHead={async (memberId) => {
+                      try {
+                        const response = await apiClient.setFamilyHead(memberId);
+                        if (response.success) {
+                          // Refresh the member details to show updated family head status
+                          const memberResponse = await apiClient.getMember(selectedMember.id!);
+                          if (memberResponse.success && memberResponse.data) {
+                            setSelectedMember(memberResponse.data);
+                          }
+                        } else {
+                          toast.error('Failed to update family head');
+                        }
+                      } catch (error) {
+                        toast.error('Failed to update family head');
+                      }
+                    }}
+                    onDeleteMember={handleDeleteMember}
                   />
                 )}
                 {membersView === 'edit' && selectedMember && (
@@ -793,9 +899,33 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                 )}
               </div>
             )}
+
+            {/* Profile View */}
+            {currentMenu === 'profile' && (
+              <AdminProfilePage />
+            )}
+
+            {currentMenu === 'church-users' && currentUser.isSuperadmin === 'yes' && (
+              <ChurchUsersPage />
+            )}
           </div>
         </main>
       </div>
+
+      {/* Modals */}
+      {selectedOfferingForAction && (
+        <>
+          <EditOfferingModal
+            isOpen={isEditOfferingModalOpen}
+            onClose={() => {
+              setIsEditOfferingModalOpen(false);
+              setSelectedOfferingForAction(null);
+            }}
+            offering={selectedOfferingForAction}
+            onUpdate={handleUpdateOffering}
+          />
+        </>
+      )}
     </div>
   );
 }
