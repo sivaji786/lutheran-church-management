@@ -32,6 +32,7 @@ $corsResponse = function() {
 
 // CORS preflight OPTIONS routes - must come before other routes
 $routes->options('auth/admin/login', $corsResponse);
+$routes->options('auth/admin/verify-2fa', $corsResponse);
 $routes->options('auth/member/login', $corsResponse);
 $routes->options('auth/change-password', $corsResponse);
 $routes->options('members', $corsResponse);
@@ -64,6 +65,7 @@ $routes->options('admin-users/(:any)/reset-password', $corsResponse);
 // Authentication
 $routes->group('auth', function($routes) {
     $routes->post('admin/login', 'Auth::adminLogin');
+    $routes->post('admin/verify-2fa', 'Auth::verifyAdmin2FA');
     $routes->post('member/login', 'Auth::memberLogin');
     $routes->post('change-password', 'Auth::changePassword');
 });
@@ -129,3 +131,6 @@ $routes->group('non-member-offerings', function($routes) {
 
 // Dashboard
 $routes->get('dashboard/stats', 'Dashboard::stats');
+
+// Email Debugging Tool
+$routes->get('email-test', 'EmailTest::index');

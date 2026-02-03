@@ -44,6 +44,91 @@ class Auth extends BaseController
             return $this->fail('Invalid password');
         }
 
+        // Generate 2FA code
+        $twoFactorCode = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        $expiresAt = date('Y-m-d H:i:s', strtotime('+10 minutes'));
+
+        $model->update($user['id'], [
+            'two_factor_code' => $twoFactorCode,
+            'two_factor_expires_at' => $expiresAt
+        ]);
+
+        $emailConfig = new \Config\Email();
+        $email = \Config\Services::email();
+        
+        $fromEmail = !empty($emailConfig->fromEmail) ? $emailConfig->fromEmail : 'noreply@' . ($_SERVER['HTTP_HOST'] ?? 'localhost');
+        $fromName = !empty($emailConfig->fromName) ? $emailConfig->fromName : 'AELC Church App';
+        
+        $email->setFrom($fromEmail, $fromName);
+        $email->setTo($user['email']);
+        $email->setSubject('Your 2-Factor Authentication Code');
+        $email->setMessage("Your authentication code is: <strong>$twoFactorCode</strong>. This code will expire in 10 minutes.");
+        
+        // Log the code for local development/debugging
+        log_message('info', "2FA Code for {$user['username']}: $twoFactorCode");
+        
+        if (!$email->send()) {
+            $debugger = $email->printDebugger(['headers', 'subject', 'body']);
+            log_message('error', "2FA Code email failed for {$user['username']} using primary protocol. Debug: " . $debugger);
+            
+            // Fallback to 'mail' protocol
+            $email->initialize(['protocol' => 'mail']);
+            $email->setFrom($fromEmail, $fromName); // Re-set From for fallback
+            if (!$email->send()) {
+                $debuggerFallback = $email->printDebugger(['headers', 'subject', 'body']);
+                log_message('error', "2FA Code email fallback to 'mail' failed for {$user['username']}. Debug: " . $debuggerFallback);
+            } else {
+                log_message('info', "2FA Code email sent via fallback for {$user['username']}.");
+            }
+        }
+
+        return $this->respond([
+            'success' => true,
+            'data' => [
+                'requires2FA' => true,
+                'userId' => $user['id'],
+                'username' => $user['username'],
+                'message' => 'A 6-digit verification code has been sent to your registered email.'
+            ]
+        ]);
+    }
+
+    public function verifyAdmin2FA()
+    {
+        $rules = [
+            'userId' => 'required',
+            'code' => 'required|min_length[6]|max_length[6]'
+        ];
+
+        if (!$this->validate($rules)) {
+            return $this->failValidationErrors($this->validator->getErrors());
+        }
+
+        $userId = $this->request->getVar('userId');
+        $code = $this->request->getVar('code');
+
+        $model = new AdminUserModel();
+        $user = $model->find($userId);
+
+        if (!$user) {
+            return $this->failNotFound('User not found');
+        }
+
+        if (!$user['two_factor_code'] || $user['two_factor_code'] !== $code) {
+            return $this->fail('Invalid verification code');
+        }
+
+        if (strtotime($user['two_factor_expires_at']) < time()) {
+            return $this->fail('Verification code has expired');
+        }
+
+        // Clear 2FA code after successful verification
+        $model->update($user['id'], [
+            'two_factor_code' => null,
+            'two_factor_expires_at' => null,
+            'last_login' => date('Y-m-d H:i:s')
+        ]);
+
         $key = getenv('JWT_SECRET');
         $iat = time();
         $exp = $iat + 3600;

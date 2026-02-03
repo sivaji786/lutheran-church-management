@@ -115,7 +115,17 @@ function App() {
 
     // Listen for changes
     window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
+
+    // Set up auto-logout callback
+    apiClient.onUnauthorized = () => {
+      console.warn('Session expired - performing auto-logout');
+      handleLogout();
+      toast.error('Session expired. Please log in again.');
+    };
+
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+    };
   }, [currentUser]);
 
 
@@ -234,6 +244,7 @@ function App() {
   };
 
   const handleLogout = () => {
+    apiClient.logout(); // Clears authToken from localStorage
     setCurrentUser(null);
     setCurrentPage('login');
     storage.remove('currentUser');

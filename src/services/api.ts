@@ -56,8 +56,10 @@ export interface LoginResponse {
         role: string;
         isSuperadmin?: string;
         memberStatus?: string;
-        token: string;
-        expiresIn: number;
+        token?: string;
+        expiresIn?: number;
+        requires2FA?: boolean;
+        message?: string;
     };
 }
 
@@ -117,6 +119,7 @@ const toSnakeCase = (obj: any): any => {
 // API Client Class
 class ApiClient {
     private token: string | null = null;
+    public onUnauthorized: (() => void) | null = null;
 
     constructor() {
         // Load token from localStorage if available
@@ -165,6 +168,10 @@ class ApiClient {
         });
 
         if (!response.ok) {
+            if (response.status === 401 && this.onUnauthorized) {
+                this.onUnauthorized();
+            }
+
             const error = await response.json().catch(() => ({
                 message: null,
             }));
@@ -222,6 +229,17 @@ class ApiClient {
         const response = await this.request<LoginResponse>('/auth/admin/login', {
             method: 'POST',
             body: JSON.stringify({ username, password }),
+        });
+        if (response.success && response.data.token) {
+            this.setToken(response.data.token);
+        }
+        return response;
+    }
+
+    async verifyAdmin2FA(userId: string, code: string): Promise<LoginResponse> {
+        const response = await this.request<LoginResponse>('/auth/admin/verify-2fa', {
+            method: 'POST',
+            body: JSON.stringify({ userId, code }),
         });
         if (response.success && response.data.token) {
             this.setToken(response.data.token);

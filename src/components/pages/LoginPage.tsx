@@ -21,6 +21,11 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   const [memberPassword, setMemberPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+  // 2FA State
+  const [requires2FA, setRequires2FA] = useState(false);
+  const [pendingUserId, setPendingUserId] = useState('');
+  const [twoFactorCode, setTwoFactorCode] = useState('');
+
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -29,16 +34,49 @@ export function LoginPage({ onLogin }: LoginPageProps) {
       const { apiClient } = await import('../../services/api');
       const response = await apiClient.adminLogin(adminUsername, adminPassword);
 
+      console.log('Admin login response:', response);
+
       if (response.success) {
+        if (response.data.requires2FA) {
+          console.log('Transitioning to 2FA screen');
+          setRequires2FA(true);
+          setPendingUserId(response.data.userId);
+          toast.info(response.data.message || 'Verification code sent to your email.');
+        } else if (response.data.token) {
+          onLogin({
+            type: 'admin',
+            token: response.data.token,
+            isSuperadmin: response.data.isSuperadmin
+          });
+          toast.success('Welcome Admin!');
+        }
+      }
+    } catch (error: any) {
+      console.error('Login error:', error);
+      toast.error(error.message || 'Invalid credentials');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleVerify2FA = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    try {
+      const { apiClient } = await import('../../services/api');
+      const response = await apiClient.verifyAdmin2FA(pendingUserId, twoFactorCode);
+
+      if (response.success && response.data.token) {
         onLogin({
           type: 'admin',
           token: response.data.token,
           isSuperadmin: response.data.isSuperadmin
         });
-        toast.success('Welcome Admin!');
+        toast.success('Verify successful! Welcome Admin!');
       }
     } catch (error: any) {
-      toast.error(error.message || 'Invalid credentials');
+      toast.error(error.message || 'Invalid verification code');
     } finally {
       setIsLoading(false);
     }
@@ -193,55 +231,100 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
                       {/* Admin Login */}
                       <TabsContent value="admin" className="space-y-6">
-                        <form onSubmit={handleAdminLogin} className="space-y-5">
-                          <div className="space-y-2">
-                            <Label htmlFor="admin-username" className="text-slate-700">
-                              Username
-                            </Label>
-                            <div className="relative">
-                              <UserCircle className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                        {!requires2FA ? (
+                          <form onSubmit={handleAdminLogin} className="space-y-5">
+                            <div className="space-y-2">
+                              <Label htmlFor="admin-username" className="text-slate-700">
+                                Username
+                              </Label>
+                              <div className="relative">
+                                <UserCircle className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                                <Input
+                                  id="admin-username"
+                                  data-testid="admin-username-input"
+                                  type="text"
+                                  placeholder="Enter admin username"
+                                  value={adminUsername}
+                                  onChange={(e) => setAdminUsername(e.target.value)}
+                                  className="pl-11 h-12"
+                                  required
+                                />
+                              </div>
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label htmlFor="admin-password" className="text-slate-700">
+                                Password
+                              </Label>
+                              <div className="relative">
+                                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                                <Input
+                                  id="admin-password"
+                                  data-testid="admin-password-input"
+                                  type="password"
+                                  placeholder="Enter admin password"
+                                  value={adminPassword}
+                                  onChange={(e) => setAdminPassword(e.target.value)}
+                                  className="pl-11 h-12"
+                                  required
+                                />
+                              </div>
+                            </div>
+
+                            <Button
+                              type="submit"
+                              data-testid="admin-login-button"
+                              className="w-full h-12 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 shadow-lg"
+                              disabled={isLoading}
+                            >
+                              <Shield className="w-5 h-5 mr-2" />
+                              {isLoading ? 'Signing in...' : 'Sign In as Admin'}
+                            </Button>
+                          </form>
+                        ) : (
+                          <form onSubmit={handleVerify2FA} className="space-y-5">
+                            <div className="text-center mb-4">
+                              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-blue-100 text-blue-600 mb-2">
+                                <Shield className="w-6 h-6" />
+                              </div>
+                              <h3 className="text-lg font-semibold text-blue-900">Two-Step Verification</h3>
+                              <p className="text-sm text-slate-600">Enter the 6-digit code sent to your email</p>
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label htmlFor="2fa-code" className="text-slate-700">
+                                Verification Code
+                              </Label>
                               <Input
-                                id="admin-username"
-                                data-testid="admin-username-input"
+                                id="2fa-code"
                                 type="text"
-                                placeholder="Enter admin username"
-                                value={adminUsername}
-                                onChange={(e) => setAdminUsername(e.target.value)}
-                                className="pl-11 h-12"
+                                maxLength={6}
+                                placeholder="000000"
+                                value={twoFactorCode}
+                                onChange={(e) => setTwoFactorCode(e.target.value.replace(/\D/g, ''))}
+                                className="h-12 text-center text-2xl tracking-[0.5em] font-bold"
                                 required
+                                autoFocus
                               />
                             </div>
-                          </div>
 
-                          <div className="space-y-2">
-                            <Label htmlFor="admin-password" className="text-slate-700">
-                              Password
-                            </Label>
-                            <div className="relative">
-                              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                              <Input
-                                id="admin-password"
-                                data-testid="admin-password-input"
-                                type="password"
-                                placeholder="Enter admin password"
-                                value={adminPassword}
-                                onChange={(e) => setAdminPassword(e.target.value)}
-                                className="pl-11 h-12"
-                                required
-                              />
-                            </div>
-                          </div>
+                            <Button
+                              type="submit"
+                              className="w-full h-12 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 shadow-lg"
+                              disabled={isLoading || twoFactorCode.length !== 6}
+                            >
+                              {isLoading ? 'Verifying...' : 'Verify & Sign In'}
+                            </Button>
 
-                          <Button
-                            type="submit"
-                            data-testid="admin-login-button"
-                            className="w-full h-12 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 shadow-lg"
-                            disabled={isLoading}
-                          >
-                            <Shield className="w-5 h-5 mr-2" />
-                            {isLoading ? 'Signing in...' : 'Sign In as Admin'}
-                          </Button>
-                        </form>
+                            <button
+                              type="button"
+                              onClick={() => setRequires2FA(false)}
+                              className="w-full text-sm text-slate-500 hover:text-blue-600 transition-colors"
+                            >
+                              Back to Login
+                            </button>
+                          </form>
+                        )}
                       </TabsContent>
                     </Tabs>
 

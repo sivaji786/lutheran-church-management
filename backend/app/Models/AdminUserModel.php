@@ -18,7 +18,8 @@ class AdminUserModel extends Model
     protected $protectFields    = true;
     protected $allowedFields    = [
         'id', 'username', 'password', 'role', 'is_superadmin', 'name', 'email', 'mobile', 
-        'is_active', 'last_login', 'password_changed_at', 'failed_login_attempts', 'locked_until'
+        'is_active', 'last_login', 'password_changed_at', 'failed_login_attempts', 'locked_until',
+        'two_factor_code', 'two_factor_expires_at'
     ];
 
     protected bool $allowEmptyInserts = false;
