@@ -34,7 +34,6 @@ export function OfferingForm({ members, onAddOffering, preSelectedMemberId }: Of
   // Filter to show only heads of family (where memberCode equals headOfFamily)
   const memberOptions: ComboboxOption[] = useMemo(() => {
     return members
-      .filter((member) => member.memberCode === member.headOfFamily)
       .map((member) => ({
         value: member.id || '',
         label: `${member.name} (${member.memberCode})`,

@@ -192,6 +192,10 @@ class Auth extends BaseController
             return $this->failNotFound('Member not found');
         }
 
+        if ($user['member_status'] === 'suspended') {
+            return $this->fail('Your account has been suspended. Please contact the administrator.', 423);
+        }
+
         if (!password_verify($password, $user['password'])) {
             // Log failed attempt - wrong password
             $security = new \App\Libraries\SecurityMonitor();

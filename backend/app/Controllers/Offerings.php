@@ -11,6 +11,7 @@ use App\Models\OfferingHistoryModel;
 class Offerings extends BaseController
 {
     use ResponseTrait;
+    use \App\Traits\LoggableTrait;
 
     public function index()
     {
@@ -142,6 +143,9 @@ class Offerings extends BaseController
         if ($model->insert($data)) {
             $offering = $model->find($model->getInsertID());
             
+            // Log Activity
+            $this->logActivity('Create', 'Offerings', $offering['id'], "Created offering: ₹{$data['amount']} for {$data['member_name']}");
+
             return $this->respondCreated([
                 'success' => true,
                 'data' => $offering,
@@ -196,6 +200,9 @@ class Offerings extends BaseController
 
         if ($model->update($id, $data)) {
             $updated = $model->find($id);
+
+            // Log Activity
+            $this->logActivity('Update', 'Offerings', $id, "Updated offering details");
             
             return $this->respond([
                 'success' => true,
@@ -231,6 +238,9 @@ class Offerings extends BaseController
         }
 
         if ($model->delete($id)) {
+            // Log Activity
+            $this->logActivity('Delete', 'Offerings', $id, "Deleted offering");
+
             return $this->respond([
                 'success' => true,
                 'message' => 'Offering deleted successfully'
@@ -253,8 +263,24 @@ class Offerings extends BaseController
         $startDate = $this->request->getVar('startDate');
         $endDate = $this->request->getVar('endDate');
         $offerType = $this->request->getVar('offerType');
+        $includeFamily = $this->request->getVar('includeFamily') === 'true';
 
-        $builder = $model->builder()->where('member_id', $memberId);
+        $builder = $model->builder();
+        
+        if ($includeFamily && !empty($member['member_serial_num'])) {
+            // Get IDs of all family members
+            $familyMemberIds = $memberModel->where('member_serial_num', $member['member_serial_num'])
+                ->select('id')
+                ->get()
+                ->getResultArray();
+            
+            $ids = array_column($familyMemberIds, 'id');
+            $builder->whereIn('member_id', $ids);
+            $filterIds = $ids;
+        } else {
+            $builder->where('member_id', $memberId);
+            $filterIds = [$memberId];
+        }
 
         if ($startDate) {
             $builder->where('date >=', $startDate);
@@ -270,14 +296,17 @@ class Offerings extends BaseController
 
         $offerings = $builder->orderBy('date', 'desc')->get()->getResultArray();
 
-        // Cast amount to float for each offering to prevent string concatenation issues
+        // Cast amount to float for each offering
         foreach ($offerings as &$offering) {
             $offering['amount'] = (float)$offering['amount'];
         }
-        unset($offering); // Break the reference
+        unset($offering);
 
         // Calculate statistics directly
         $db = \Config\Database::connect();
+        
+        // Use placeholders for whereIn if necessary, or just use the IDs array
+        $idsString = "'" . implode("','", $filterIds) . "'";
         
         // Get total contributions and count
         $statsQuery = $db->query("
@@ -287,27 +316,27 @@ class Offerings extends BaseController
                 COUNT(*) as total_offerings,
                 MAX(date) as last_offering_date
             FROM offerings 
-            WHERE member_id = ?
-        ", [$memberId]);
+            WHERE member_id IN ($idsString)
+        ");
         $stats = $statsQuery->getRowArray();
         
         // Get this month's total
         $thisMonthQuery = $db->query("
             SELECT COALESCE(SUM(amount), 0) as this_month_total
             FROM offerings 
-            WHERE member_id = ? 
+            WHERE member_id IN ($idsString)
             AND YEAR(date) = YEAR(CURDATE()) 
             AND MONTH(date) = MONTH(CURDATE())
-        ", [$memberId]);
+        ");
         $thisMonthData = $thisMonthQuery->getRowArray();
         
         // Get offerings by type
         $offeringsByType = $db->query("
             SELECT offer_type, SUM(amount) as total 
             FROM offerings 
-            WHERE member_id = ? 
+            WHERE member_id IN ($idsString)
             GROUP BY offer_type
-        ", [$memberId])->getResultArray();
+        ")->getResultArray();
 
         $offeringsByTypeMap = [];
         foreach ($offeringsByType as $item) {

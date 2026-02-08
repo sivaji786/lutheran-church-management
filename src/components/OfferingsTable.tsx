@@ -29,9 +29,10 @@ type OfferingsTableProps = {
   onFilterChange: (filters: OfferingFilters) => void;
   onEditOffering?: (offering: Offering) => void;
   onViewHistory?: (offering: Offering) => void;
+  isSuperAdmin?: boolean;
 };
 
-export function OfferingsTable({ offerings, totalRecords, onFilterChange, onEditOffering, onViewHistory }: OfferingsTableProps) {
+export function OfferingsTable({ offerings, totalRecords, onFilterChange, onEditOffering, onViewHistory, isSuperAdmin = false }: OfferingsTableProps) {
   const [filterType, setFilterType] = useState<string>('all');
   const [filterPaymentMode, setFilterPaymentMode] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -241,22 +242,26 @@ export function OfferingsTable({ offerings, totalRecords, onFilterChange, onEdit
 
         {/* Export Buttons */}
         <div className="flex flex-wrap gap-2">
-          <Button
-            onClick={handleExportCSV}
-            variant="outline"
-            className="border-green-300 text-green-700 hover:bg-green-50"
-          >
-            <Download className="w-4 h-4 mr-2" />
-            Export CSV
-          </Button>
+          {isSuperAdmin && (
+            <>
+              <Button
+                onClick={handleExportCSV}
+                variant="outline"
+                className="border-green-300 text-green-700 hover:bg-green-50"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Export CSV
+              </Button>
 
-          <Button
-            onClick={handleExportExcel}
-            className="bg-green-600 hover:bg-green-700"
-          >
-            <FileDown className="w-4 h-4 mr-2" />
-            Export Excel
-          </Button>
+              <Button
+                onClick={handleExportExcel}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                <FileDown className="w-4 h-4 mr-2" />
+                Export Excel
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -400,7 +405,7 @@ export function OfferingsTable({ offerings, totalRecords, onFilterChange, onEdit
                   <TableHead>Offer Type</TableHead>
                   <TableHead>Payment Mode</TableHead>
                   <TableHead>Amount</TableHead>
-                  <TableHead>Notes</TableHead>
+                  <TableHead className="w-[200px]">Notes</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -435,7 +440,7 @@ export function OfferingsTable({ offerings, totalRecords, onFilterChange, onEdit
                     <TableCell className="text-green-700">
                       ₹{offering.amount.toLocaleString('en-IN')}
                     </TableCell>
-                    <TableCell className="text-slate-600 max-w-xs truncate" title={offering.notes || ''}>
+                    <TableCell className="text-slate-600 max-w-[200px] truncate" title={offering.notes || ''}>
                       {offering.notes || <span className="text-slate-400 italic">-</span>}
                     </TableCell>
                     <TableCell className="text-right">

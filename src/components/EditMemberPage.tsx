@@ -7,6 +7,7 @@ import { Textarea } from './ui/textarea';
 import { Checkbox } from './ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { ArrowLeft, Save, AlertCircle, User, MapPin, Church, FileText } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { toast } from 'sonner';
 import { Member } from '../App';
 import { Alert, AlertDescription } from './ui/alert';
@@ -385,23 +386,24 @@ export function EditMemberPage({
 
                   <Card className="border-slate-200">
                     <CardContent className="pt-6">
-                      <div className="flex items-start space-x-4">
-                        <Checkbox
-                          id="maritalStatus"
-                          checked={formData.maritalStatus || false}
-                          onCheckedChange={(checked: boolean) =>
-                            setFormData({ ...formData, maritalStatus: checked })
-                          }
-                          className="mt-1"
-                        />
-                        <div className="flex-1">
-                          <label htmlFor="maritalStatus" className="text-slate-900 cursor-pointer block mb-1">
-                            Marital Status
-                          </label>
-                          <p className="text-sm text-slate-500">
-                            Member is married
-                          </p>
-                        </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="maritalStatus">Marital Status</Label>
+                        <Select
+                          value={formData.maritalStatus || 'unmarried'}
+                          onValueChange={(value: any) => setFormData({ ...formData, maritalStatus: value as 'married' | 'unmarried' | 'widow' })}
+                        >
+                          <SelectTrigger id="maritalStatus" className="w-full">
+                            <SelectValue placeholder="Select marital status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="married">Married</SelectItem>
+                            <SelectItem value="unmarried">Unmarried</SelectItem>
+                            <SelectItem value="widow">Widow</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-sm text-slate-500">
+                          Select current marital status
+                        </p>
                       </div>
                     </CardContent>
                   </Card>

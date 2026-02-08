@@ -52,8 +52,15 @@ export function MemberLookupPage() {
                     setFamilyMembers(memberData.familyMembers);
                 }
 
-                // Fetch offerings
-                const offeringsRes = await apiClient.getMemberOfferings(memberData.id);
+                // Determine if head of family
+                const isHeadOfFamily = memberData.isHeadOfFamily === "1" ||
+                    memberData.isHeadOfFamily === true ||
+                    (memberData as any).is_head_of_family === true ||
+                    (memberData as any).is_head_of_family === 1 ||
+                    (memberData as any).is_head_of_family === "1";
+
+                // Fetch offerings (include family ONLY if head of family)
+                const offeringsRes = await apiClient.getMemberOfferings(memberData.id, { includeFamily: isHeadOfFamily });
                 if (offeringsRes.success && offeringsRes.data.offerings) {
                     setOfferings(offeringsRes.data.offerings);
                 }
@@ -185,6 +192,26 @@ export function MemberLookupPage() {
                                             </Badge>
                                         </div>
                                         <div>
+                                            <p className="text-sm font-medium text-slate-500">Serial Number</p>
+                                            <p className="text-base text-slate-900">{member.memberSerialNum || 'N/A'}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-medium text-slate-500">Occupation</p>
+                                            <p className="text-base text-slate-900">{member.occupation || 'N/A'}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-medium text-slate-500">Date of Birth</p>
+                                            <p className="text-base text-slate-900">{member.dateOfBirth || 'N/A'}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-medium text-slate-500">Area</p>
+                                            <p className="text-base text-slate-900">{member.area || 'N/A'}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-medium text-slate-500">Aadhar Number</p>
+                                            <p className="text-base text-slate-900 font-mono">{member.aadharNumber || 'N/A'}</p>
+                                        </div>
+                                        <div>
                                             <p className="text-sm font-medium text-slate-500">Ward</p>
                                             <p className="text-base text-slate-900">{member.ward || 'N/A'}</p>
                                         </div>
@@ -257,6 +284,7 @@ export function MemberLookupPage() {
                                             <TableHeader>
                                                 <TableRow className="bg-slate-50/50">
                                                     <TableHead>Date</TableHead>
+                                                    <TableHead>Given By</TableHead>
                                                     <TableHead>Type</TableHead>
                                                     <TableHead>Payment Mode</TableHead>
                                                     <TableHead>Notes</TableHead>
@@ -269,6 +297,11 @@ export function MemberLookupPage() {
                                                         <TableRow key={offering.id}>
                                                             <TableCell className="font-medium text-slate-700">
                                                                 {new Date(offering.date).toLocaleDateString()}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <span className="font-medium">{offering.memberName}</span>
+                                                                <br />
+                                                                <span className="text-xs text-slate-500">{offering.memberCode}</span>
                                                             </TableCell>
                                                             <TableCell>{offering.offerType}</TableCell>
                                                             <TableCell>{offering.paymentMode}</TableCell>

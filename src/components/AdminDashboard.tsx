@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { LogOut, UserPlus, DollarSign, Users, TrendingUp, LayoutDashboard, Menu, X, ArrowLeft, Ticket, Cake, HandCoins } from 'lucide-react';
+import { LogOut, UserPlus, DollarSign, Users, TrendingUp, LayoutDashboard, Menu, X, ArrowLeft, Ticket, Cake, HandCoins, Activity } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { MemberRegistrationForm } from './MemberRegistrationForm';
@@ -16,6 +16,7 @@ import { AdminProfilePage } from './AdminProfilePage';
 import { OfferingHistoryView } from './OfferingHistoryView';
 import { EditOfferingModal } from './EditOfferingModal';
 import ChurchUsersPage from './ChurchUsersPage';
+import { ActivityLogsPage } from './pages/ActivityLogsPage';
 import { Member, Offering, Ticket as TicketType, User } from '../App';
 import { storage } from '../utils/localStorage';
 import { apiClient } from '../services/api';
@@ -27,7 +28,7 @@ type AdminDashboardProps = {
   currentUser: User;
 };
 
-type MenuItem = 'dashboard' | 'members' | 'offerings' | 'tickets' | 'nonMemberOfferings' | 'profile' | 'church-users';
+type MenuItem = 'dashboard' | 'members' | 'offerings' | 'tickets' | 'nonMemberOfferings' | 'profile' | 'church-users' | 'activity-logs';
 type MembersView = 'list' | 'add' | 'detail' | 'edit';
 type OfferingsView = 'list' | 'add' | 'history';
 
@@ -312,7 +313,10 @@ export function AdminDashboard({ onLogout, currentUser }: AdminDashboardProps) {
     { id: 'nonMemberOfferings' as MenuItem, label: 'Guest Offerings', icon: HandCoins },
     { id: 'tickets' as MenuItem, label: 'Tickets', icon: Ticket },
     { id: 'profile' as MenuItem, label: 'My Profile', icon: UserPlus },
-    ...(currentUser.isSuperadmin === 'yes' ? [{ id: 'church-users' as MenuItem, label: 'Church Users', icon: Users }] : []),
+    ...(currentUser.isSuperadmin === 'yes' ? [
+      { id: 'activity-logs' as MenuItem, label: 'Activity Logs', icon: Activity },
+      { id: 'church-users' as MenuItem, label: 'Church Users', icon: Users }
+    ] : []),
   ];
 
   const handleMenuClick = (menuId: MenuItem) => {
@@ -657,6 +661,7 @@ export function AdminDashboard({ onLogout, currentUser }: AdminDashboardProps) {
                           offerings={offerings}
                           totalRecords={totalOfferingsRecords}
                           onFilterChange={fetchOfferings}
+                          isSuperAdmin={currentUser.isSuperadmin === 'yes'}
                           onEditOffering={(offering) => {
                             setSelectedOfferingForAction(offering);
                             setIsEditOfferingModalOpen(true);
@@ -743,9 +748,18 @@ export function AdminDashboard({ onLogout, currentUser }: AdminDashboardProps) {
                             try {
                               const response = await apiClient.getMember(member.id!);
                               if (response.success && response.data) {
-                                setSelectedMember(response.data);
-                                // Fetch offerings for this member
-                                const offeringsRes = await apiClient.getMemberOfferings(member.id!);
+                                const memberData = response.data;
+                                setSelectedMember(memberData);
+
+                                // Determine if head of family
+                                const isHeadOfFamily = memberData.isHeadOfFamily === "1" ||
+                                  memberData.isHeadOfFamily === true ||
+                                  (memberData as any).is_head_of_family === true ||
+                                  (memberData as any).is_head_of_family === 1 ||
+                                  (memberData as any).is_head_of_family === "1";
+
+                                // Fetch offerings (include family ONLY if head of family)
+                                const offeringsRes = await apiClient.getMemberOfferings(member.id!, { includeFamily: isHeadOfFamily });
                                 if (offeringsRes.success && offeringsRes.data.offerings) {
                                   setMemberOfferings(offeringsRes.data.offerings);
                                 }
@@ -760,6 +774,7 @@ export function AdminDashboard({ onLogout, currentUser }: AdminDashboardProps) {
                           onAddOffering={handleQuickAddOffering}
                           initialBirthdayFilter={showBirthdayFilter}
                           onFilterChange={fetchMembers}
+                          isSuperAdmin={currentUser.isSuperadmin === 'yes'}
                         />
                       </CardContent>
                     </Card>
@@ -813,9 +828,18 @@ export function AdminDashboard({ onLogout, currentUser }: AdminDashboardProps) {
                       try {
                         const response = await apiClient.getMember(member.id!);
                         if (response.success && response.data) {
-                          setSelectedMember(response.data);
-                          // Fetch offerings for the new member
-                          const offeringsRes = await apiClient.getMemberOfferings(member.id!);
+                          const memberData = response.data;
+                          setSelectedMember(memberData);
+
+                          // Determine if head of family
+                          const isHeadOfFamily = memberData.isHeadOfFamily === "1" ||
+                            memberData.isHeadOfFamily === true ||
+                            (memberData as any).is_head_of_family === true ||
+                            (memberData as any).is_head_of_family === 1 ||
+                            (memberData as any).is_head_of_family === "1";
+
+                          // Fetch offerings (include family ONLY if head of family)
+                          const offeringsRes = await apiClient.getMemberOfferings(member.id!, { includeFamily: isHeadOfFamily });
                           if (offeringsRes.success && offeringsRes.data.offerings) {
                             setMemberOfferings(offeringsRes.data.offerings);
                           }
@@ -862,7 +886,10 @@ export function AdminDashboard({ onLogout, currentUser }: AdminDashboardProps) {
 
             {/* Non-Member Offerings View */}
             {currentMenu === 'nonMemberOfferings' && (
-              <NonMemberOfferingsPage onBack={() => setCurrentMenu('dashboard')} />
+              <NonMemberOfferingsPage
+                onBack={() => setCurrentMenu('dashboard')}
+                isSuperAdmin={currentUser.isSuperadmin === 'yes'}
+              />
             )}
 
             {/* Tickets View */}
@@ -907,6 +934,10 @@ export function AdminDashboard({ onLogout, currentUser }: AdminDashboardProps) {
 
             {currentMenu === 'church-users' && currentUser.isSuperadmin === 'yes' && (
               <ChurchUsersPage />
+            )}
+
+            {currentMenu === 'activity-logs' && currentUser.isSuperadmin === 'yes' && (
+              <ActivityLogsPage />
             )}
           </div>
         </main>

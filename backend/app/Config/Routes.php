@@ -59,6 +59,8 @@ $routes->options('admin/change-password', $corsResponse);
 $routes->options('admin-users', $corsResponse);
 $routes->options('admin-users/(:any)', $corsResponse);
 $routes->options('admin-users/(:any)/reset-password', $corsResponse);
+$routes->options('maintenance/reformat-member-codes', $corsResponse);
+$routes->options('admin/activity-logs', $corsResponse);
 
 // Route configuration
 
@@ -75,6 +77,7 @@ $routes->group('admin', function($routes) {
     $routes->get('profile', 'Admin::profile');
     $routes->put('profile', 'Admin::updateProfile');
     $routes->post('change-password', 'Admin::changePassword');
+    $routes->get('activity-logs', 'ActivityLogs::index');
 });
 
 // Admin Users (Church Users)
@@ -131,6 +134,11 @@ $routes->group('non-member-offerings', function($routes) {
 
 // Dashboard
 $routes->get('dashboard/stats', 'Dashboard::stats');
+
+// Maintenance
+$routes->group('maintenance', function($routes) {
+    $routes->post('reformat-member-codes', 'Maintenance::reformatMemberCodes');
+});
 
 // Email Debugging Tool
 $routes->get('email-test', 'EmailTest::index');

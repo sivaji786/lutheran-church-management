@@ -13,11 +13,12 @@ import { toast } from 'sonner';
 
 type NonMemberOfferingsPageProps = {
     onBack: () => void;
+    isSuperAdmin?: boolean;
 };
 
 type NonMemberOfferingsView = 'list' | 'add';
 
-export function NonMemberOfferingsPage({ onBack }: NonMemberOfferingsPageProps) {
+export function NonMemberOfferingsPage({ onBack, isSuperAdmin = false }: NonMemberOfferingsPageProps) {
     const [currentView, setCurrentView] = useState<NonMemberOfferingsView>('list');
     const [offerings, setOfferings] = useState<any[]>([]);
     const [totalRecords, setTotalRecords] = useState(0);
@@ -208,22 +209,26 @@ export function NonMemberOfferingsPage({ onBack }: NonMemberOfferingsPageProps) 
 
                                     {/* Export Buttons */}
                                     <div className="flex flex-wrap gap-2">
-                                        <Button
-                                            onClick={handleExportCSV}
-                                            variant="outline"
-                                            className="border-green-300 text-green-700 hover:bg-green-50"
-                                        >
-                                            <Download className="w-4 h-4 mr-2" />
-                                            Export CSV
-                                        </Button>
+                                        {isSuperAdmin && (
+                                            <>
+                                                <Button
+                                                    onClick={handleExportCSV}
+                                                    variant="outline"
+                                                    className="border-green-300 text-green-700 hover:bg-green-50"
+                                                >
+                                                    <Download className="w-4 h-4 mr-2" />
+                                                    Export CSV
+                                                </Button>
 
-                                        <Button
-                                            onClick={handleExportExcel}
-                                            className="bg-green-600 hover:bg-green-700"
-                                        >
-                                            <FileDown className="w-4 h-4 mr-2" />
-                                            Export Excel
-                                        </Button>
+                                                <Button
+                                                    onClick={handleExportExcel}
+                                                    className="bg-green-600 hover:bg-green-700"
+                                                >
+                                                    <FileDown className="w-4 h-4 mr-2" />
+                                                    Export Excel
+                                                </Button>
+                                            </>
+                                        )}
                                     </div>
                                 </div>
 

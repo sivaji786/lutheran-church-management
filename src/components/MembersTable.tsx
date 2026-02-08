@@ -22,6 +22,9 @@ export type MemberFilters = {
   occupation?: string;
   ward?: string;
   birthday?: string;
+  age?: string;
+  ageRelational?: string;
+  ageValue?: number;
   memberStatus?: string;
   sortBy?: string;
   sortOrder?: string;
@@ -34,9 +37,10 @@ type MembersTableProps = {
   onAddOffering?: (member: Member) => void;
   initialBirthdayFilter?: boolean;
   onFilterChange: (filters: MemberFilters) => void;
+  isSuperAdmin?: boolean;
 };
 
-export function MembersTable({ members, totalRecords, onMemberClick, onAddOffering, initialBirthdayFilter, onFilterChange }: MembersTableProps) {
+export function MembersTable({ members, totalRecords, onMemberClick, onAddOffering, initialBirthdayFilter, onFilterChange, isSuperAdmin = false }: MembersTableProps) {
   // Initialize state from localStorage or defaults
   const getInitialState = (key: string, defaultValue: any) => {
     const saved = storage.get('members_state') as any;
@@ -52,6 +56,9 @@ export function MembersTable({ members, totalRecords, onMemberClick, onAddOfferi
   const [occupationFilter, setOccupationFilter] = useState<string>(() => getInitialState('occupationFilter', 'all'));
   const [wardFilter, setWardFilter] = useState<string>(() => getInitialState('wardFilter', 'all'));
   const [birthdayFilter, setBirthdayFilter] = useState<string>(() => getInitialState('birthdayFilter', initialBirthdayFilter ? 'yes' : 'all'));
+  const [ageFilter, setAgeFilter] = useState<string>(() => getInitialState('ageFilter', 'all'));
+  const [ageRelationalFilter, setAgeRelationalFilter] = useState<string>(() => getInitialState('ageRelationalFilter', 'none'));
+  const [ageValueFilter, setAgeValueFilter] = useState<number | ''>(() => getInitialState('ageValueFilter', ''));
   const [showFilters, setShowFilters] = useState(() => getInitialState('showFilters', initialBirthdayFilter || false));
   const [sortColumn, setSortColumn] = useState<string>(() => getInitialState('sortColumn', 'created_at'));
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(() => getInitialState('sortDirection', 'desc'));
@@ -68,6 +75,7 @@ export function MembersTable({ members, totalRecords, onMemberClick, onAddOfferi
     aadhar: true,
     mobile: true,
     ward: true,
+    age: true,
     remarks: true,
   }));
   const [pageSize, setPageSize] = useState(() => getInitialState('pageSize', 10));
@@ -85,6 +93,9 @@ export function MembersTable({ members, totalRecords, onMemberClick, onAddOfferi
       occupationFilter,
       wardFilter,
       birthdayFilter,
+      ageFilter,
+      ageRelationalFilter,
+      ageValueFilter,
       showFilters,
       sortColumn,
       sortDirection,
@@ -102,17 +113,22 @@ export function MembersTable({ members, totalRecords, onMemberClick, onAddOfferi
       occupation: occupationFilter,
       ward: wardFilter,
       birthday: birthdayFilter,
+      age: ageFilter,
+      ageRelational: ageRelationalFilter,
+      ageValue: ageValueFilter !== '' ? ageValueFilter : undefined,
       memberStatus: confirmationFilter === 'suspended' ? 'suspended' : 'all',
       sortBy: sortColumn,
       sortOrder: sortDirection,
     });
-  }, [searchTerm, currentPage, pageSize, baptismFilter, confirmationFilter, maritalFilter, residentialFilter, occupationFilter, wardFilter, birthdayFilter, showFilters, sortColumn, sortDirection]);
+  }, [searchTerm, currentPage, pageSize, baptismFilter, confirmationFilter, maritalFilter, residentialFilter, occupationFilter, wardFilter, birthdayFilter, ageFilter, ageRelationalFilter, ageValueFilter, showFilters, sortColumn, sortDirection]);
 
 
 
   // Check if any filters are active
   const hasActiveFilters = baptismFilter !== 'all' || confirmationFilter !== 'all' ||
-    maritalFilter !== 'all' || residentialFilter !== 'all' || occupationFilter !== 'all' || wardFilter !== 'all' || (birthdayFilter !== 'all' && birthdayFilter !== 'no') || searchTerm !== '';
+    maritalFilter !== 'all' || residentialFilter !== 'all' || occupationFilter !== 'all' || wardFilter !== 'all' ||
+    (birthdayFilter !== 'all' && birthdayFilter !== 'no') || ageFilter !== 'all' || (ageRelationalFilter !== 'none' && ageValueFilter !== '') ||
+    searchTerm !== '';
 
   // Clear all filters
   const clearFilters = () => {
@@ -123,6 +139,9 @@ export function MembersTable({ members, totalRecords, onMemberClick, onAddOfferi
     setOccupationFilter('all');
     setWardFilter('all');
     setBirthdayFilter('all');
+    setAgeFilter('all');
+    setAgeRelationalFilter('none');
+    setAgeValueFilter('');
     setSearchTerm('');
     setSearchTerm('');
     setCurrentPage(1);
@@ -158,6 +177,9 @@ export function MembersTable({ members, totalRecords, onMemberClick, onAddOfferi
         occupation: occupationFilter === 'all' ? undefined : occupationFilter,
         ward: wardFilter === 'all' ? undefined : wardFilter,
         birthday: (birthdayFilter === 'yes') ? true : undefined,
+        age: ageFilter === 'all' ? undefined : ageFilter,
+        ageRelational: ageRelationalFilter === 'none' ? undefined : ageRelationalFilter,
+        ageValue: ageValueFilter === '' ? undefined : ageValueFilter,
       };
 
       // Fetch all members for export with current filters
@@ -185,6 +207,7 @@ export function MembersTable({ members, totalRecords, onMemberClick, onAddOfferi
         'Full Name',
         'Occupation',
         'Date of Birth',
+        'Age',
         'Baptism Status',
         'Confirmation Status',
         'Marital Status',
@@ -205,9 +228,10 @@ export function MembersTable({ members, totalRecords, onMemberClick, onAddOfferi
         member.name,
         member.occupation,
         member.dateOfBirth,
+        member.age,
         member.baptismStatus ? 'Yes' : 'No',
         member.confirmationStatus ? 'Confirmed' : 'Not Confirmed',
-        member.maritalStatus ? 'Married' : 'Unmarried',
+        member.maritalStatus === 'married' ? 'Married' : member.maritalStatus === 'widow' ? 'Widow' : 'Unmarried',
         member.residentialStatus ? 'Resident' : 'Non-Resident',
         member.aadharNumber,
         member.mobile,
@@ -259,6 +283,9 @@ export function MembersTable({ members, totalRecords, onMemberClick, onAddOfferi
         occupation: occupationFilter === 'all' ? undefined : occupationFilter,
         ward: wardFilter === 'all' ? undefined : wardFilter,
         birthday: (birthdayFilter === 'yes') ? true : undefined,
+        age: ageFilter === 'all' ? undefined : ageFilter,
+        ageRelational: ageRelationalFilter === 'none' ? undefined : ageRelationalFilter,
+        ageValue: ageValueFilter === '' ? undefined : ageValueFilter,
       };
 
       const response = await apiClient.getMembers(exportFilters);
@@ -279,9 +306,10 @@ export function MembersTable({ members, totalRecords, onMemberClick, onAddOfferi
         'Full Name': member.name,
         'Occupation': member.occupation,
         'Date of Birth': member.dateOfBirth,
+        'Age': member.age,
         'Baptism Status': member.baptismStatus ? 'Yes' : 'No',
         'Confirmation Status': member.confirmationStatus ? 'Confirmed' : 'Not Confirmed',
-        'Marital Status': member.maritalStatus ? 'Married' : 'Unmarried',
+        'Marital Status': member.maritalStatus === 'married' ? 'Married' : member.maritalStatus === 'widow' ? 'Widow' : 'Unmarried',
         'Residential Status': member.residentialStatus ? 'Resident' : 'Non-Resident',
         'Aadhar Number': member.aadharNumber,
         'Mobile Number': member.mobile,
@@ -303,6 +331,7 @@ export function MembersTable({ members, totalRecords, onMemberClick, onAddOfferi
         { wch: 25 }, // Full Name
         { wch: 20 }, // Occupation
         { wch: 15 }, // Date of Birth
+        { wch: 8 },  // Age
         { wch: 15 }, // Baptism Status
         { wch: 18 }, // Confirmation Status
         { wch: 15 }, // Marital Status
@@ -412,23 +441,27 @@ export function MembersTable({ members, totalRecords, onMemberClick, onAddOfferi
           )} */}
 
           {/* Export Buttons */}
-          <Button
-            onClick={handleExportCSV}
-            variant="outline"
-            className="border-green-200 text-green-600 hover:bg-green-50"
-          >
-            <FileDown className="w-4 h-4 mr-2" />
-            Export CSV
-          </Button>
+          {isSuperAdmin && (
+            <>
+              <Button
+                onClick={handleExportCSV}
+                variant="outline"
+                className="border-green-200 text-green-600 hover:bg-green-50"
+              >
+                <FileDown className="w-4 h-4 mr-2" />
+                Export CSV
+              </Button>
 
-          <Button
-            onClick={handleExportExcel}
-            variant="outline"
-            className="border-purple-200 text-purple-600 hover:bg-purple-50"
-          >
-            <FileUp className="w-4 h-4 mr-2" />
-            Export Excel
-          </Button>
+              <Button
+                onClick={handleExportExcel}
+                variant="outline"
+                className="border-purple-200 text-purple-600 hover:bg-purple-50"
+              >
+                <FileUp className="w-4 h-4 mr-2" />
+                Export Excel
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -453,7 +486,9 @@ export function MembersTable({ members, totalRecords, onMemberClick, onAddOfferi
           Filters
           {hasActiveFilters && (
             <Badge className="ml-2 bg-blue-600 text-white">
-              {[baptismFilter, confirmationFilter, maritalFilter, residentialFilter, occupationFilter, wardFilter].filter(f => f !== 'all').length + (birthdayFilter === 'yes' ? 1 : 0)}
+              {[baptismFilter, confirmationFilter, maritalFilter, residentialFilter, occupationFilter, wardFilter, ageFilter].filter(f => f !== 'all').length +
+                (birthdayFilter === 'yes' ? 1 : 0) +
+                (ageRelationalFilter !== 'none' && ageValueFilter !== '' ? 1 : 0)}
             </Badge>
           )}
         </Button>
@@ -593,6 +628,16 @@ export function MembersTable({ members, totalRecords, onMemberClick, onAddOfferi
                 className="flex justify-between items-center cursor-pointer"
                 onSelect={(e) => {
                   e.preventDefault();
+                  setVisibleColumns(prev => ({ ...prev, age: !prev.age }));
+                }}
+              >
+                <span>Age</span>
+                {visibleColumns.age ? <Eye className="w-4 h-4 text-blue-600" /> : <EyeOff className="w-4 h-4 text-slate-400" />}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="flex justify-between items-center cursor-pointer"
+                onSelect={(e) => {
+                  e.preventDefault();
                   setVisibleColumns(prev => ({ ...prev, remarks: !prev.remarks }));
                 }}
               >
@@ -647,6 +692,7 @@ export function MembersTable({ members, totalRecords, onMemberClick, onAddOfferi
                   <SelectItem value="all">All</SelectItem>
                   <SelectItem value="married">Married</SelectItem>
                   <SelectItem value="unmarried">Unmarried</SelectItem>
+                  <SelectItem value="widow">Widow</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -709,6 +755,47 @@ export function MembersTable({ members, totalRecords, onMemberClick, onAddOfferi
                   <SelectItem value="yes">Yes</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* Age Filters */}
+            <div className="space-y-1">
+              <Label className="text-xs text-slate-600">Exact Age</Label>
+              <Select value={ageFilter} onValueChange={setAgeFilter}>
+                <SelectTrigger className="w-24 bg-white">
+                  <SelectValue placeholder="Age" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  {Array.from({ length: 100 }, (_, i) => i + 1).map(age => (
+                    <SelectItem key={age} value={age.toString()}>{age}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs text-slate-600">Age Filter</Label>
+              <div className="flex gap-2">
+                <Select value={ageRelationalFilter} onValueChange={setAgeRelationalFilter}>
+                  <SelectTrigger className="w-20 bg-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    <SelectItem value="<">{"<"}</SelectItem>
+                    <SelectItem value=">">{">"}</SelectItem>
+                    <SelectItem value="<=">{"<="}</SelectItem>
+                    <SelectItem value=">=">{">="}</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Input
+                  type="number"
+                  placeholder="Age"
+                  value={ageValueFilter}
+                  onChange={(e) => setAgeValueFilter(e.target.value === '' ? '' : parseInt(e.target.value))}
+                  className="w-20 bg-white"
+                />
+              </div>
             </div>
 
             {hasActiveFilters && (
@@ -786,6 +873,17 @@ export function MembersTable({ members, totalRecords, onMemberClick, onAddOfferi
                     <div className="flex items-center">
                       Date of Birth
                       {renderSortIcon('date_of_birth')}
+                    </div>
+                  </TableHead>
+                )}
+                {visibleColumns.age && (
+                  <TableHead
+                    className="cursor-pointer hover:bg-slate-100 group transition-colors"
+                    onClick={() => handleSort('age')}
+                  >
+                    <div className="flex items-center">
+                      Age
+                      {renderSortIcon('age')}
                     </div>
                   </TableHead>
                 )}
@@ -895,6 +993,9 @@ export function MembersTable({ members, totalRecords, onMemberClick, onAddOfferi
                     {visibleColumns.dob && (
                       <TableCell>{member.dateOfBirth && !isNaN(new Date(member.dateOfBirth).getTime()) ? new Date(member.dateOfBirth).toLocaleDateString('en-IN') : '-'}</TableCell>
                     )}
+                    {visibleColumns.age && (
+                      <TableCell className="font-medium text-blue-900">{member.age !== undefined && member.age !== null ? member.age : '-'}</TableCell>
+                    )}
                     {visibleColumns.baptism && (
                       <TableCell className="text-center">
                         <Badge variant={member.baptismStatus ? "default" : "secondary"} className={member.baptismStatus ? "bg-green-100 text-green-800" : ""}>
@@ -917,8 +1018,14 @@ export function MembersTable({ members, totalRecords, onMemberClick, onAddOfferi
                     )}
                     {visibleColumns.marital && (
                       <TableCell className="text-center">
-                        <Badge variant="outline" className={member.maritalStatus ? "bg-pink-50 text-pink-700 border-pink-200" : "bg-slate-50 text-slate-700 border-slate-200"}>
-                          {member.maritalStatus ? 'Married' : 'Unmarried'}
+                        <Badge variant="outline" className={
+                          member.maritalStatus === 'married'
+                            ? "bg-blue-50 text-blue-700 border-blue-200"
+                            : member.maritalStatus === 'widow'
+                              ? "bg-purple-50 text-purple-700 border-purple-200"
+                              : "bg-slate-50 text-slate-700 border-slate-200"
+                        }>
+                          {member.maritalStatus === 'married' ? 'Married' : member.maritalStatus === 'widow' ? 'Widow' : 'Unmarried'}
                         </Badge>
                       </TableCell>
                     )}

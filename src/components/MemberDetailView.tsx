@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, Mail, Phone, MapPin, DollarSign, Calendar, ArrowLeft, TrendingUp, PieChart, IdCard, Briefcase, Cake, Church, Heart, Home, CheckCircle, XCircle, BanIcon, Edit, KeyRound, Printer, Crown, Trash2 } from 'lucide-react';
+import { User, Phone, MapPin, DollarSign, Calendar, ArrowLeft, TrendingUp, PieChart, IdCard, Briefcase, Cake, Church, CheckCircle, XCircle, BanIcon, Edit, KeyRound, Printer, Crown, Trash2 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import churchLogo from '../assets/church_logo_new.png';
@@ -28,8 +28,8 @@ export function MemberDetailView({ member, offerings, onUpdateMemberStatus, onRe
   const [showResetPasswordDialog, setShowResetPasswordDialog] = React.useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
 
-  // Get offerings for this member
-  const memberOfferings = offerings.filter(o => o.memberId === member.id);
+  // Get offerings for this member (now including family offerings passed from parent)
+  const memberOfferings = offerings;
 
   // Calculate statistics - ensure amounts are numbers
   const totalContributions = memberOfferings.reduce((sum, o) => sum + (Number(o.amount) || 0), 0);
@@ -175,7 +175,7 @@ export function MemberDetailView({ member, offerings, onUpdateMemberStatus, onRe
 
     // Table
     const tableColumn = [
-      "S No", "Full Name", "Occupation", "Date of Birth",
+      "S No", "Full Name", "Member Code", "Occupation", "Date of Birth",
       "Baptism", "Confirmation", "Marital",
       "Aadhar No", "Residential", "Mobile Number"
     ];
@@ -183,11 +183,12 @@ export function MemberDetailView({ member, offerings, onUpdateMemberStatus, onRe
     const tableRows = member.familyMembers?.map((fm, index) => [
       index + 1,
       fm.name,
+      fm.memberCode || '',
       fm.occupation,
       fm.dateOfBirth ? new Date(fm.dateOfBirth).toLocaleDateString('en-GB') : '',
       fm.baptismStatus ? 'Yes' : 'No',
       fm.confirmationStatus ? 'Yes' : 'No',
-      fm.maritalStatus ? 'Yes' : 'No',
+      fm.maritalStatus === 'married' ? 'Married' : fm.maritalStatus === 'widow' ? 'Widow' : 'Unmarried',
       fm.aadharNumber || '',
       fm.residentialStatus ? 'Resident' : 'Non-Res',
       fm.mobile || ''
@@ -218,16 +219,17 @@ export function MemberDetailView({ member, offerings, onUpdateMemberStatus, onRe
         overflow: 'linebreak'
       },
       columnStyles: {
-        0: { halign: 'center', cellWidth: 15 }, // S No
-        1: { cellWidth: 50 }, // Full Name - Wider
-        2: { cellWidth: 30 }, // Occupation - Wider
-        3: { halign: 'center', cellWidth: 25 }, // DOB
-        4: { halign: 'center', cellWidth: 20 }, // Baptism
-        5: { halign: 'center', cellWidth: 25 }, // Confirmation
-        6: { halign: 'center', cellWidth: 20 }, // Marital
-        7: { halign: 'center', cellWidth: 30 }, // Aadhar - Wider
-        8: { halign: 'center', cellWidth: 25 }, // Residential
-        9: { halign: 'center', cellWidth: 25 }  // Mobile
+        0: { halign: 'center', cellWidth: 12 }, // S No
+        1: { cellWidth: 40 }, // Full Name
+        2: { halign: 'center', cellWidth: 25 }, // Member Code
+        3: { cellWidth: 25 }, // Occupation
+        4: { halign: 'center', cellWidth: 22 }, // DOB
+        5: { halign: 'center', cellWidth: 18 }, // Baptism
+        6: { halign: 'center', cellWidth: 22 }, // Confirmation
+        7: { halign: 'center', cellWidth: 18 }, // Marital
+        8: { halign: 'center', cellWidth: 28 }, // Aadhar
+        9: { halign: 'center', cellWidth: 22 }, // Residential
+        10: { halign: 'center', cellWidth: 25 }  // Mobile
       }
     });
 
@@ -435,8 +437,14 @@ export function MemberDetailView({ member, offerings, onUpdateMemberStatus, onRe
                 </div>
                 <div>
                   <p className="text-sm text-slate-500 mb-1">Marital Status</p>
-                  <Badge variant="outline" className={member.maritalStatus ? "bg-pink-50 text-pink-700 border-pink-200" : "bg-slate-50 text-slate-700 border-slate-200"}>
-                    {member.maritalStatus ? 'Married' : 'Unmarried'}
+                  <Badge variant="outline" className={
+                    member.maritalStatus === 'married'
+                      ? "bg-blue-50 text-blue-700 border-blue-200"
+                      : member.maritalStatus === 'widow'
+                        ? "bg-purple-50 text-purple-700 border-purple-200"
+                        : "bg-slate-50 text-slate-700 border-slate-200"
+                  }>
+                    {member.maritalStatus === 'married' ? 'Married' : member.maritalStatus === 'widow' ? 'Widow' : 'Unmarried'}
                   </Badge>
                 </div>
                 <div>
@@ -487,6 +495,7 @@ export function MemberDetailView({ member, offerings, onUpdateMemberStatus, onRe
                   <TableRow className="bg-slate-50">
                     <TableHead className="w-[50px]">S.No</TableHead>
                     <TableHead>Full Name</TableHead>
+                    <TableHead>Member Code</TableHead>
                     <TableHead>Occupation</TableHead>
                     <TableHead>Date of Birth</TableHead>
                     <TableHead>Baptism</TableHead>
@@ -521,6 +530,7 @@ export function MemberDetailView({ member, offerings, onUpdateMemberStatus, onRe
                           )}
                         </div>
                       </TableCell>
+                      <TableCell className="font-mono text-sm">{fm.memberCode}</TableCell>
                       <TableCell>{fm.occupation}</TableCell>
                       <TableCell>
                         {fm.dateOfBirth ? new Date(fm.dateOfBirth).toLocaleDateString('en-IN', {
@@ -540,8 +550,14 @@ export function MemberDetailView({ member, offerings, onUpdateMemberStatus, onRe
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={fm.maritalStatus ? "bg-pink-50 text-pink-700 border-pink-200" : "bg-slate-50 text-slate-700 border-slate-200"}>
-                          {fm.maritalStatus ? 'Yes' : 'No'}
+                        <Badge variant="outline" className={
+                          fm.maritalStatus === 'married'
+                            ? "bg-blue-50 text-blue-700 border-blue-200"
+                            : fm.maritalStatus === 'widow'
+                              ? "bg-purple-50 text-purple-700 border-purple-200"
+                              : "bg-slate-50 text-slate-700 border-slate-200"
+                        }>
+                          {fm.maritalStatus === 'married' ? 'Married' : fm.maritalStatus === 'widow' ? 'Widow' : 'Unmarried'}
                         </Badge>
                       </TableCell>
                       <TableCell className="font-mono text-xs">{fm.aadharNumber || '-'}</TableCell>
@@ -765,6 +781,8 @@ export function MemberDetailView({ member, offerings, onUpdateMemberStatus, onRe
                 <TableHeader>
                   <TableRow className="bg-slate-50">
                     <TableHead>Date</TableHead>
+                    <TableHead>Member Name</TableHead>
+                    <TableHead>Member Code</TableHead>
                     <TableHead>Offer Type</TableHead>
                     <TableHead>Payment Mode</TableHead>
                     <TableHead>Notes</TableHead>
@@ -780,6 +798,14 @@ export function MemberDetailView({ member, offerings, onUpdateMemberStatus, onRe
                           month: 'short',
                           year: 'numeric'
                         })}
+                      </TableCell>
+                      <TableCell>
+                        <span className="font-medium text-slate-700">{offering.memberName}</span>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 font-mono">
+                          {offering.memberCode}
+                        </Badge>
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">

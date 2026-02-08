@@ -75,7 +75,7 @@ COMMENT='Admin users with system access';
 -- ============================================================
 CREATE TABLE members (
   id CHAR(36) PRIMARY KEY,
-  member_code VARCHAR(20) NOT NULL UNIQUE COMMENT 'Format: LCH001, LCH002, etc.',
+  member_code VARCHAR(20) NOT NULL UNIQUE COMMENT 'Format: LCH-XXXX-X',
   name VARCHAR(100) NOT NULL,
   occupation VARCHAR(100),
   date_of_birth DATE NOT NULL,
@@ -410,7 +410,7 @@ INSERT INTO members (
 ) VALUES 
 (
   '1',
-  'LCH001',
+  'LCH-0001-1',
   'John Emmanuel',
   'Software Engineer',
   '1990-05-15',
@@ -430,7 +430,7 @@ INSERT INTO members (
 ),
 (
   '2',
-  'LCH002',
+  'LCH-0002-1',
   'Sarah David',
   'Teacher',
   '1985-08-22',
@@ -468,7 +468,7 @@ INSERT INTO offerings (
   UUID(),
   '1',
   'John Emmanuel',
-  'LCH001',
+  'LCH-0001-1',
   '2024-11-10',
   5000.00,
   'Tithe',
@@ -480,7 +480,7 @@ INSERT INTO offerings (
   UUID(),
   '1',
   'John Emmanuel',
-  'LCH001',
+  'LCH-0001-1',
   '2024-11-03',
   2000.00,
   'Thanksgiving',
@@ -492,7 +492,7 @@ INSERT INTO offerings (
   UUID(),
   '2',
   'Sarah David',
-  'LCH002',
+  'LCH-0002-1',
   '2024-11-10',
   3000.00,
   'Tithe',
@@ -523,7 +523,7 @@ INSERT INTO tickets (
   'T001',
   '1',
   'John Emmanuel',
-  'LCH001',
+  'LCH-0001-1',
   'Profile Update',
   'Update Address',
   'Please update my address to 123 New Street, New City.',
@@ -537,7 +537,7 @@ INSERT INTO tickets (
   'T002',
   '2',
   'Sarah David',
-  'LCH002',
+  'LCH-0002-1',
   'Suggestion',
   'New Ministry',
   'Suggest starting a new ministry for children.',
@@ -628,12 +628,8 @@ CREATE PROCEDURE sp_generate_member_code(OUT next_code VARCHAR(20))
 BEGIN
   DECLARE last_number INT;
   
-  SELECT COALESCE(MAX(CAST(SUBSTRING(member_code, 4) AS UNSIGNED)), 0) INTO last_number
-  FROM members
-  WHERE member_code LIKE 'LCH%';
-  
   SET last_number = last_number + 1;
-  SET next_code = CONCAT('LCH', LPAD(last_number, 3, '0'));
+  SET next_code = CONCAT('LCH-', LPAD(last_number, 4, '0'), '-1');
 END //
 DELIMITER ;
 

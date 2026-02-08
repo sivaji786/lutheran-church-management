@@ -190,6 +190,9 @@ class ApiClient {
                     case 403:
                         userMessage = 'You do not have permission to perform this action.';
                         break;
+                    case 423:
+                        userMessage = 'Your account has been suspended. Please contact the administrator.';
+                        break;
                     case 404:
                         userMessage = 'The requested resource was not found.';
                         break;
@@ -290,6 +293,9 @@ class ApiClient {
         occupation?: string;
         ward?: string;
         birthday?: boolean | string;
+        age?: string;
+        ageRelational?: string;
+        ageValue?: number;
         sortBy?: string;
         sortOrder?: string;
     }): Promise<PaginatedResponse> {
@@ -418,6 +424,7 @@ class ApiClient {
         startDate?: string;
         endDate?: string;
         offerType?: string;
+        includeFamily?: boolean;
     }): Promise<ApiResponse<any>> {
         const queryParams = new URLSearchParams();
         if (params) {
@@ -588,6 +595,30 @@ class ApiClient {
         return this.request(`/admin-users/${id}/reset-password`, {
             method: 'POST'
         });
+    }
+
+    async reformatMemberCodes(): Promise<ApiResponse<any>> {
+        return this.request('/maintenance/reformat-member-codes', {
+            method: 'POST'
+        });
+    }
+    async getActivityLogs(params?: {
+        page?: number;
+        limit?: number;
+        search?: string;
+        module?: string;
+        adminId?: string;
+    }): Promise<PaginatedResponse> {
+        const queryParams = new URLSearchParams();
+        if (params) {
+            if (params.page) queryParams.append('page', String(params.page));
+            if (params.limit) queryParams.append('limit', String(params.limit));
+            if (params.search) queryParams.append('search', params.search);
+            if (params.module) queryParams.append('module', params.module);
+            if (params.adminId) queryParams.append('admin_id', params.adminId);
+        }
+        const query = queryParams.toString();
+        return this.request(`/admin/activity-logs${query ? `?${query}` : ''}`);
     }
 }
 

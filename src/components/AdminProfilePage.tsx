@@ -5,7 +5,7 @@ import { Button } from './ui/button';
 import { Label } from './ui/label';
 import { toast } from 'sonner';
 import { apiClient } from '../services/api';
-import { User, Lock, Save, Shield, Edit2, X } from 'lucide-react';
+import { User, Lock, Save, Shield, Edit2, X, RefreshCw } from 'lucide-react';
 
 export function AdminProfilePage() {
     const [profile, setProfile] = useState<any>(null);
@@ -22,6 +22,9 @@ export function AdminProfilePage() {
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [isChangingPassword, setIsChangingPassword] = useState(false);
+
+    // Maintenance State
+    const [isReformatting, setIsReformatting] = useState(false);
 
     useEffect(() => {
         fetchProfile();
@@ -96,6 +99,27 @@ export function AdminProfilePage() {
             toast.error(error.message || 'Failed to change password');
         } finally {
             setIsChangingPassword(false);
+        }
+    };
+
+    const handleReformat = async () => {
+        if (!window.confirm('Are you sure you want to reformat all member codes? This will sync all related data across the database.')) {
+            return;
+        }
+
+        setIsReformatting(true);
+        try {
+            const response = await apiClient.reformatMemberCodes();
+            if (response.success) {
+                toast.success('Member codes reformatted successfully!');
+                console.log('Maintenance results:', response.data);
+            } else {
+                toast.error(response.message || 'Failed to reformat codes');
+            }
+        } catch (error: any) {
+            toast.error(error.message || 'Failed to perform maintenance');
+        } finally {
+            setIsReformatting(false);
         }
     };
 
@@ -305,6 +329,49 @@ export function AdminProfilePage() {
                     </CardContent>
                 </Card>
             </div>
+
+            {profile?.isSuperadmin === 'yes' && (
+                <Card className="border-red-100 shadow-elegant">
+                    <CardHeader>
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                                <RefreshCw className="w-5 h-5 text-red-600" />
+                            </div>
+                            <div>
+                                <CardTitle className="text-red-900">System Maintenance</CardTitle>
+                                <CardDescription>Critical system-wide maintenance tasks</CardDescription>
+                            </div>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="p-4 bg-red-50 border border-red-100 rounded-lg">
+                            <h4 className="text-red-900 font-medium mb-1">Reformat Member Codes</h4>
+                            <p className="text-red-700 text-sm mb-4">
+                                This will reformat all member codes to the standard LCH-XXXX-X format and synchronize them across members,
+                                offerings, and tickets tables. Use this if you notice inconsistent IDs in any table.
+                            </p>
+                            <Button
+                                onClick={handleReformat}
+                                variant="destructive"
+                                disabled={isReformatting}
+                                className="bg-red-600 hover:bg-red-700"
+                            >
+                                {isReformatting ? (
+                                    <>
+                                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                                        Reformatting...
+                                    </>
+                                ) : (
+                                    <>
+                                        <RefreshCw className="w-4 h-4 mr-2" />
+                                        Reformat & Sync All Codes
+                                    </>
+                                )}
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
         </div>
     );
 }

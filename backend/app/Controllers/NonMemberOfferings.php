@@ -9,6 +9,7 @@ use App\Models\NonMemberOfferingModel;
 class NonMemberOfferings extends BaseController
 {
     use ResponseTrait;
+    use \App\Traits\LoggableTrait;
 
     public function index()
     {
@@ -153,6 +154,9 @@ class NonMemberOfferings extends BaseController
         if ($model->insert($data)) {
             $offering = $model->find($model->getInsertID());
             
+            // Log Activity
+            $this->logActivity('Create', 'Guest Offerings', $offering['id'], "Created guest offering: ₹{$data['amount']} for {$data['donor_name']}");
+
             return $this->respondCreated([
                 'success' => true,
                 'data' => $offering,
@@ -217,6 +221,9 @@ class NonMemberOfferings extends BaseController
 
         if ($model->update($id, $data)) {
             $updated = $model->find($id);
+
+            // Log Activity
+            $this->logActivity('Update', 'Guest Offerings', $id, "Updated guest offering details");
             
             return $this->respond([
                 'success' => true,
@@ -238,6 +245,9 @@ class NonMemberOfferings extends BaseController
         }
 
         if ($model->delete($id)) {
+            // Log Activity
+            $this->logActivity('Delete', 'Guest Offerings', $id, "Deleted guest offering");
+
             return $this->respond([
                 'success' => true,
                 'message' => 'Non-member offering deleted successfully'

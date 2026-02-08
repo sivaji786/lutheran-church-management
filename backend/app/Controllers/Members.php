@@ -9,6 +9,7 @@ use App\Models\MemberModel;
 class Members extends BaseController
 {
     use ResponseTrait;
+    use \App\Traits\LoggableTrait;
 
     public function index()
     {
@@ -24,6 +25,7 @@ class Members extends BaseController
         // file_put_contents(WRITEPATH . 'logs/debug_filters.log', json_encode($this->request->getGet()) . "\n", FILE_APPEND);
 
         $builder = $model->builder();
+        $builder->select('*, TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) AS age');
 
         if ($search) {
             $builder->groupStart()
@@ -57,7 +59,7 @@ class Members extends BaseController
 
         $maritalStatus = $this->request->getVar('maritalStatus');
         if ($maritalStatus !== null && $maritalStatus !== 'all') {
-            $builder->where('marital_status', $maritalStatus === 'married' ? 1 : 0);
+            $builder->where('marital_status', $maritalStatus);
         }
 
         $residentialStatus = $this->request->getVar('residentialStatus');
@@ -95,6 +97,20 @@ class Members extends BaseController
                     ->where('DAY(date_of_birth)', date('d'));
         }
 
+        $age = $this->request->getVar('age');
+        if ($age !== null && $age !== 'all') {
+            $builder->where('TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE())', $age);
+        }
+
+        $ageRelational = $this->request->getVar('ageRelational');
+        $ageValue = $this->request->getVar('ageValue');
+        if ($ageRelational !== null && $ageRelational !== 'none' && $ageValue !== null && $ageValue !== '') {
+            $operators = ['<' => '<', '>' => '>', '<=' => '<=', '>=' => '>='];
+            if (isset($operators[$ageRelational])) {
+                $builder->where("TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) {$operators[$ageRelational]}", $ageValue);
+            }
+        }
+
         $total = $builder->countAllResults(false);
         
         $members = $builder
@@ -107,7 +123,6 @@ class Members extends BaseController
         foreach ($members as &$member) {
             $member['baptism_status'] = (bool)$member['baptism_status'];
             $member['confirmation_status'] = (bool)$member['confirmation_status'];
-            $member['marital_status'] = (bool)$member['marital_status'];
             $member['residential_status'] = (bool)$member['residential_status'];
             // Cast numeric fields to integers
             if (isset($member['member_order'])) $member['member_order'] = (int)$member['member_order'];
@@ -133,7 +148,7 @@ class Members extends BaseController
     public function show($id)
     {
         $model = new MemberModel();
-        $member = $model->find($id);
+        $member = $model->select('*, TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) AS age')->find($id);
 
         if (!$member) {
             return $this->failNotFound('Member not found');
@@ -144,7 +159,6 @@ class Members extends BaseController
         // Cast boolean fields
         $member['baptism_status'] = (bool)$member['baptism_status'];
         $member['confirmation_status'] = (bool)$member['confirmation_status'];
-        $member['marital_status'] = (bool)$member['marital_status'];
         $member['residential_status'] = (bool)$member['residential_status'];
 
         // Transform to camelCase
@@ -153,7 +167,8 @@ class Members extends BaseController
         // Fetch family members
         $familyMembers = [];
         if (!empty($member['memberSerialNum'])) {
-            $familyMembersRaw = $model->where('member_serial_num', $member['memberSerialNum'])
+            $familyMembersRaw = $model->select('*, TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) AS age')
+                                   ->where('member_serial_num', $member['memberSerialNum'])
                                    ->orderBy('member_order', 'ASC')
                                    ->findAll();
             
@@ -162,7 +177,6 @@ class Members extends BaseController
                 unset($fm['password']);
                 $fm['baptism_status'] = (bool)$fm['baptism_status'];
                 $fm['confirmation_status'] = (bool)$fm['confirmation_status'];
-                $fm['marital_status'] = (bool)$fm['marital_status'];
                 $fm['residential_status'] = (bool)$fm['residential_status'];
                 $familyMembers[] = $this->transformToCamelCase($fm);
             }
@@ -252,8 +266,12 @@ class Members extends BaseController
         $data['registration_date'] = date('Y-m-d');
         
         if ($model->insert($data)) {
-            $member = $model->find($model->getInsertID());
+            $memberId = $model->getInsertID();
+            $member = $model->find($memberId);
             unset($member['password']);
+
+            // Log Activity
+            $this->logActivity('Create', 'Members', $memberId, "Created member: {$data['name']}");
             
             return $this->respondCreated([
                 'success' => true,
@@ -320,8 +338,34 @@ class Members extends BaseController
         }
 
         if ($model->update($id, $data)) {
+            // Log Activity
+            $this->logActivity('Update', 'Members', $id, "Updated member details");
+
             $updated = $model->find($id);
             unset($updated['password']);
+
+            // If member_code was updated, sync with other tables
+            if (isset($data['member_code'])) {
+                $db = \Config\Database::connect();
+                $newCode = $data['member_code'];
+                $oldCode = $member['member_code'];
+
+                // Update offerings
+                $db->table('offerings')
+                    ->where('member_id', $id)
+                    ->update(['member_code' => $newCode]);
+
+                // Update tickets
+                $db->table('tickets')
+                    ->where('member_id', $id)
+                    ->update(['member_code' => $newCode]);
+                
+                // Update family members who have this member as head_of_family
+                $db->table('members')
+                    ->where('head_of_family', $oldCode)
+                    ->where('member_serial_num', $member['member_serial_num'])
+                    ->update(['head_of_family' => $newCode]);
+            }
             
             return $this->respond([
                 'success' => true,
@@ -349,6 +393,9 @@ class Members extends BaseController
         }
 
         if ($model->update($id, ['member_status' => $data['memberStatus']])) {
+            // Log Activity
+            $this->logActivity('Update', 'Members', $id, "Updated status to: {$data['memberStatus']}");
+
             $updated = $model->find($id);
             unset($updated['password']);
             
@@ -453,7 +500,9 @@ class Members extends BaseController
         }
 
         // Search only by member_code (exact match)
-        $member = $model->where('member_code', $memberCode)->first();
+        $member = $model->select('*, TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) AS age')
+                        ->where('member_code', $memberCode)
+                        ->first();
 
         if (!$member) {
             return $this->failNotFound('Member not found with the provided member code');
@@ -464,7 +513,6 @@ class Members extends BaseController
         // Cast boolean fields
         $member['baptism_status'] = (bool)$member['baptism_status'];
         $member['confirmation_status'] = (bool)$member['confirmation_status'];
-        $member['marital_status'] = (bool)$member['marital_status'];
         $member['residential_status'] = (bool)$member['residential_status'];
 
         // Transform to camelCase
@@ -473,7 +521,8 @@ class Members extends BaseController
         // Fetch family members
         $familyMembers = [];
         if (!empty($member['memberSerialNum'])) {
-            $familyMembersRaw = $model->where('member_serial_num', $member['memberSerialNum'])
+            $familyMembersRaw = $model->select('*, TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) AS age')
+                                   ->where('member_serial_num', $member['memberSerialNum'])
                                    ->orderBy('member_order', 'ASC')
                                    ->findAll();
             
@@ -482,7 +531,6 @@ class Members extends BaseController
                 unset($fm['password']);
                 $fm['baptism_status'] = (bool)$fm['baptism_status'];
                 $fm['confirmation_status'] = (bool)$fm['confirmation_status'];
-                $fm['marital_status'] = (bool)$fm['marital_status'];
                 $fm['residential_status'] = (bool)$fm['residential_status'];
                 $fm['is_head_of_family'] = (bool)$fm['is_head_of_family'];
                 $familyMembers[] = $this->transformToCamelCase($fm);
@@ -541,6 +589,9 @@ class Members extends BaseController
         // Set the selected member as head of family
         $model->update($id, ['is_head_of_family' => true]);
 
+        // Log Activity
+        $this->logActivity('Update', 'Members', $id, "Set as Head of Family");
+
         // Return updated family data with proper transformation
         $updatedFamilyRaw = $model->where('member_serial_num', $member['member_serial_num'])->findAll();
         
@@ -549,7 +600,6 @@ class Members extends BaseController
             unset($fm['password']);
             $fm['baptism_status'] = (bool)$fm['baptism_status'];
             $fm['confirmation_status'] = (bool)$fm['confirmation_status'];
-            $fm['marital_status'] = (bool)$fm['marital_status'];
             $fm['residential_status'] = (bool)$fm['residential_status'];
             $fm['is_head_of_family'] = (bool)$fm['is_head_of_family'];
             $updatedFamily[] = $this->transformToCamelCase($fm);
@@ -576,6 +626,9 @@ class Members extends BaseController
 
         // Delete the member
         if ($model->delete($id)) {
+            // Log Activity
+            $this->logActivity('Delete', 'Members', $id, "Deleted member");
+
             return $this->respond([
                 'success' => true,
                 'message' => 'Member deleted successfully'

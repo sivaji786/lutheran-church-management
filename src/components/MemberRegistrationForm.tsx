@@ -5,6 +5,7 @@ import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Switch } from './ui/switch';
 import { Card } from './ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Member } from '../App';
 
 type MemberRegistrationFormProps = {
@@ -12,14 +13,14 @@ type MemberRegistrationFormProps = {
   existingMembers: Member[];
 };
 
-export function MemberRegistrationForm({ onAddMember, existingMembers }: MemberRegistrationFormProps) {
+export function MemberRegistrationForm({ onAddMember }: MemberRegistrationFormProps) {
   const [memberSerialNum, setMemberSerialNum] = useState('');
   const [name, setName] = useState('');
   const [occupation, setOccupation] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [baptismStatus, setBaptismStatus] = useState(false);
   const [confirmationStatus, setConfirmationStatus] = useState(false);
-  const [maritalStatus, setMaritalStatus] = useState(false);
+  const [maritalStatus, setMaritalStatus] = useState<'married' | 'unmarried' | 'widow'>('unmarried');
   const [residentialStatus, setResidentialStatus] = useState(true);
   const [aadharNumber, setAadharNumber] = useState('');
   const [mobile, setMobile] = useState('');
@@ -65,7 +66,7 @@ export function MemberRegistrationForm({ onAddMember, existingMembers }: MemberR
       setDateOfBirth('');
       setBaptismStatus(false);
       setConfirmationStatus(false);
-      setMaritalStatus(false);
+      setMaritalStatus('unmarried');
       setResidentialStatus(true);
       setAadharNumber('');
       setMobile('');
@@ -84,7 +85,7 @@ export function MemberRegistrationForm({ onAddMember, existingMembers }: MemberR
     setDateOfBirth('');
     setBaptismStatus(false);
     setConfirmationStatus(false);
-    setMaritalStatus(false);
+    setMaritalStatus('unmarried');
     setResidentialStatus(true);
     setAadharNumber('');
     setMobile('');
@@ -210,18 +211,21 @@ export function MemberRegistrationForm({ onAddMember, existingMembers }: MemberR
         </div>
 
         <div className="grid md:grid-cols-2 gap-6">
-          <div className="flex items-center justify-between p-4 bg-white rounded-lg border border-slate-200">
-            <div className="space-y-1">
-              <Label htmlFor="maritalStatus" className="cursor-pointer">Marital Status</Label>
-              <p className="text-sm text-slate-500">
-                {maritalStatus ? 'Married' : 'Unmarried'}
-              </p>
-            </div>
-            <Switch
-              id="maritalStatus"
-              checked={maritalStatus}
-              onCheckedChange={setMaritalStatus}
-            />
+          <div className="space-y-1 p-4 bg-white rounded-lg border border-slate-200">
+            <Label htmlFor="maritalStatus">Marital Status</Label>
+            <Select
+              value={maritalStatus}
+              onValueChange={(value: any) => setMaritalStatus(value as 'married' | 'unmarried' | 'widow')}
+            >
+              <SelectTrigger id="maritalStatus" className="w-full">
+                <SelectValue placeholder="Select marital status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="married">Married</SelectItem>
+                <SelectItem value="unmarried">Unmarried</SelectItem>
+                <SelectItem value="widow">Widow</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="flex items-center justify-between p-4 bg-white rounded-lg border border-slate-200">

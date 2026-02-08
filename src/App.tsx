@@ -19,7 +19,7 @@ export type Member = {
   dateOfBirth?: string;
   baptismStatus: boolean;
   confirmationStatus: boolean;
-  maritalStatus: boolean; // true = Married, false = Unmarried
+  maritalStatus: 'married' | 'unmarried' | 'widow';
   residentialStatus: boolean; // true = Resident, false = Non-Resident
   aadharNumber?: string;
   mobile: string;
@@ -32,8 +32,10 @@ export type Member = {
   memberStatus: 'confirmed' | 'unconfirmed' | 'suspended';
   memberSerialNum?: number;
   memberOrder?: number;
-  isHeadOfFamily?: string; // API returns "0" or "1" as strings
+  isHeadOfFamily?: string | boolean; // API returns "0" or "1" as strings
+  is_head_of_family?: string | boolean | number; // For snake_case handling
   headOfFamily?: string;
+  age?: number;
   familyMembers?: Member[];
 };
 
@@ -128,6 +130,47 @@ function App() {
     };
   }, [currentUser]);
 
+  // Inactivity timeout for admin users (1 hour)
+  useEffect(() => {
+    if (currentUser?.type !== 'admin') return;
+
+    let timeoutId: any;
+
+    const resetTimer = () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+
+      // 1 hour = 3600000ms
+      timeoutId = setTimeout(() => {
+        console.warn('Admin session timed out due to inactivity');
+        handleLogout();
+        toast.error('Session timed out due to 1 hour of inactivity. Please log in again.');
+      }, 3600000);
+    };
+
+    // Events that indicate user activity
+    const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
+
+    // Set up listeners
+    activityEvents.forEach(event => {
+      window.addEventListener(event, resetTimer);
+    });
+
+    // Initial timer start
+    resetTimer();
+
+    // Cleanup
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      activityEvents.forEach(event => {
+        window.removeEventListener(event, resetTimer);
+      });
+    };
+  }, [currentUser]);
+
 
   // Restore user session from localStorage on app load
   useEffect(() => {
@@ -159,18 +202,25 @@ function App() {
               if (memberDetailRes.success && memberDetailRes.data) {
                 const fullMemberData = memberDetailRes.data;
 
-                // Set members array with the logged-in member and their family members
                 if (fullMemberData.familyMembers && fullMemberData.familyMembers.length > 0) {
                   setMembers(fullMemberData.familyMembers);
                 } else {
                   setMembers([fullMemberData]);
                 }
-              }
 
-              // Fetch only this member's offerings using dedicated endpoint
-              const offeringsRes = await apiClient.getMemberOfferings(member.id);
-              if (offeringsRes.success && offeringsRes.data.offerings) {
-                setOfferings(offeringsRes.data.offerings);
+                // Fetch offerings - include family if head of family
+                // Check both string "1" and boolean true, and also check the snake_case version just in case
+                const isHeadOfFamily = fullMemberData.isHeadOfFamily === "1" ||
+                  fullMemberData.isHeadOfFamily === true ||
+                  (fullMemberData as any).is_head_of_family === true ||
+                  (fullMemberData as any).is_head_of_family === 1;
+
+                const offeringsRes = await apiClient.getMemberOfferings(member.id, {
+                  includeFamily: isHeadOfFamily
+                });
+                if (offeringsRes.success && offeringsRes.data.offerings) {
+                  setOfferings(offeringsRes.data.offerings);
+                }
               }
 
               // Fetch only this member's tickets using memberId filter
@@ -221,12 +271,19 @@ function App() {
               } else {
                 setMembers([fullMemberData]);
               }
-            }
 
-            // Fetch only this member's offerings using dedicated endpoint
-            const offeringsRes = await apiClient.getMemberOfferings(member.id);
-            if (offeringsRes.success && offeringsRes.data.offerings) {
-              setOfferings(offeringsRes.data.offerings);
+              // Fetch offerings - include family if head of family
+              const isHeadOfFamily = fullMemberData.isHeadOfFamily === "1" ||
+                fullMemberData.isHeadOfFamily === true ||
+                (fullMemberData as any).is_head_of_family === true ||
+                (fullMemberData as any).is_head_of_family === 1;
+
+              const offeringsRes = await apiClient.getMemberOfferings(member.id, {
+                includeFamily: isHeadOfFamily
+              });
+              if (offeringsRes.success && offeringsRes.data.offerings) {
+                setOfferings(offeringsRes.data.offerings);
+              }
             }
 
             // Fetch only this member's tickets using memberId filter

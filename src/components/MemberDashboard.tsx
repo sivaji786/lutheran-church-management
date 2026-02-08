@@ -37,9 +37,17 @@ export function MemberDashboard({
 
   const member = members.find((m) => m.memberCode === memberCode);
 
-  // For members, offerings and tickets come from props (empty arrays)
-  // They don't need to see this data in member portal
-  const memberOfferings = offerings.filter((o) => o.memberId === member?.id);
+  // For members, offerings and tickets come from props
+  // If Head of Family, show all fetched offerings (which include family). Otherwise filter for self.
+  const isHeadOfFamily = member?.isHeadOfFamily === "1" ||
+    member?.isHeadOfFamily === true ||
+    member?.is_head_of_family === true ||
+    member?.is_head_of_family === 1 ||
+    member?.is_head_of_family === "1";
+
+  const memberOfferings = isHeadOfFamily
+    ? offerings
+    : offerings.filter((o) => o.memberId === member?.id);
   const totalOfferings = memberOfferings.reduce((sum, offering) => sum + Number(offering.amount), 0);
   const memberTickets = tickets.filter((t) => t.memberId === member?.id);
   const familyMembers = members.filter(m => m.memberSerialNum === member?.memberSerialNum).sort((a, b) => (a.memberOrder || 0) - (b.memberOrder || 0));
@@ -320,6 +328,22 @@ export function MemberDashboard({
                         <p className="text-slate-900 text-lg">{member.occupation}</p>
                       </div>
                       <div className="space-y-2">
+                        <p className="text-slate-500 text-sm uppercase tracking-wide">Aadhar Number</p>
+                        <p className="text-slate-900 text-lg">{member.aadharNumber || '-'}</p>
+                      </div>
+                      <div className="space-y-2">
+                        <p className="text-slate-500 text-sm uppercase tracking-wide">Address</p>
+                        <p className="text-slate-900 text-lg">{member.address}</p>
+                      </div>
+                      <div className="space-y-2">
+                        <p className="text-slate-500 text-sm uppercase tracking-wide">Area</p>
+                        <p className="text-slate-900 text-lg">{member.area}</p>
+                      </div>
+                      <div className="space-y-2">
+                        <p className="text-slate-500 text-sm uppercase tracking-wide">Ward</p>
+                        <p className="text-slate-900 text-lg">{member.ward}</p>
+                      </div>
+                      <div className="space-y-2">
                         <p className="text-slate-500 text-sm uppercase tracking-wide">Total Offerings</p>
                         <p className="text-green-900 text-lg">₹{totalOfferings.toLocaleString('en-IN')}</p>
                       </div>
@@ -462,6 +486,8 @@ export function MemberDashboard({
                           <TableHeader>
                             <TableRow>
                               <TableHead>Date</TableHead>
+                              <TableHead>Member Code</TableHead>
+                              <TableHead>Member Name</TableHead>
                               <TableHead>Offer Type</TableHead>
                               <TableHead>Amount</TableHead>
                               <TableHead>Payment Mode</TableHead>
@@ -477,6 +503,14 @@ export function MemberDashboard({
                                     month: 'short',
                                     year: 'numeric',
                                   })}
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant="outline" className="bg-slate-50 text-slate-700 font-mono">
+                                    {offering.memberCode}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="font-medium text-slate-900">
+                                  {offering.memberName}
                                 </TableCell>
                                 <TableCell>
                                   <Badge variant="outline" className="border-blue-200 text-blue-700">
