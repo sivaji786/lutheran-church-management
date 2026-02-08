@@ -131,7 +131,7 @@ class Auth extends BaseController
 
         $key = getenv('JWT_SECRET');
         $iat = time();
-        $exp = $iat + 3600;
+        $exp = $iat + 7200;
 
         $payload = array(
             "iss" => "LutheranChurchApp",
@@ -152,7 +152,7 @@ class Auth extends BaseController
                 'role' => $user['role'],
                 'isSuperadmin' => $user['is_superadmin'],
                 'token' => $token,
-                'expiresIn' => 3600
+                'expiresIn' => 7200
             ]
         ];
 
@@ -205,7 +205,7 @@ class Auth extends BaseController
 
         $key = getenv('JWT_SECRET');
         $iat = time();
-        $exp = $iat + 3600;
+        $exp = $iat + 7200;
 
         $payload = array(
             "iss" => "LutheranChurchApp",
@@ -228,7 +228,7 @@ class Auth extends BaseController
                 'role' => 'member',
                 'memberStatus' => $user['member_status'],
                 'token' => $token,
-                'expiresIn' => 3600
+                'expiresIn' => 7200
             ]
         ];
 

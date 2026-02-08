@@ -7,12 +7,13 @@ use CodeIgniter\Email\Email;
 class SecurityMonitor
 {
     protected $email;
-    protected $securityEmail = 'sivaji@digitalks.in';
+    protected $securityEmail;
     protected $appName = 'Lutheran Church Management System';
     
     public function __construct()
     {
         $this->email = \Config\Services::email();
+        $this->securityEmail = getenv('SECURITY_ALERT_EMAIL') ?: 'sivaji@digitalks.in';
     }
     
     /**
@@ -21,7 +22,11 @@ class SecurityMonitor
     protected function sendSecurityAlert(string $subject, string $message, array $details = [])
     {
         try {
-            $this->email->setFrom('noreply@lutheranchurch.org', $this->appName . ' Security');
+            $config = config('Email');
+            $fromEmail = $config->fromEmail ?? 'noreply@lutheranchurch.org';
+            $fromName = $config->fromName ?? ($this->appName . ' Security');
+
+            $this->email->setFrom($fromEmail, $fromName);
             $this->email->setTo($this->securityEmail);
             $this->email->setSubject('[SECURITY ALERT] ' . $subject);
             

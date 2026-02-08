@@ -13,11 +13,26 @@ $corsResponse = function() {
     $request = service('request');
     $origin = $request->getHeaderLine('Origin');
     
-    // Allow localhost origins in development
-    if (ENVIRONMENT === 'development' && preg_match('/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/', $origin)) {
+    $envAllowedOrigins = getenv('CORS_ALLOWED_ORIGINS');
+    $allowedOrigins = $envAllowedOrigins ? explode(',', $envAllowedOrigins) : [];
+    
+    // Determine allowed origin
+    $allowedOrigin = '*';
+    if (ENVIRONMENT === 'development') {
+        if (empty($origin) || preg_match('/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/', $origin)) {
+            $allowedOrigin = $origin ?: '*';
+        }
+    } 
+    
+    if (in_array($origin, $allowedOrigins)) {
         $allowedOrigin = $origin;
-    } else {
-        $allowedOrigin = '*';
+    }
+
+    // Return first allowed origin instead of '*' to stay compatible with credentials: true
+    if ($allowedOrigin === '*' && !empty($allowedOrigins)) {
+        $allowedOrigin = $allowedOrigins[0];
+    } elseif ($allowedOrigin === '*' && ENVIRONMENT === 'development') {
+        $allowedOrigin = $origin ?: '*';
     }
     
     $response->setHeader('Access-Control-Allow-Origin', $allowedOrigin);

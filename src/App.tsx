@@ -130,7 +130,7 @@ function App() {
     };
   }, [currentUser]);
 
-  // Inactivity timeout for admin users (1 hour)
+  // Inactivity timeout for admin users (2 hours)
   useEffect(() => {
     if (currentUser?.type !== 'admin') return;
 
@@ -141,12 +141,12 @@ function App() {
         clearTimeout(timeoutId);
       }
 
-      // 1 hour = 3600000ms
+      // 2 hours = 7200000ms
       timeoutId = setTimeout(() => {
         console.warn('Admin session timed out due to inactivity');
         handleLogout();
-        toast.error('Session timed out due to 1 hour of inactivity. Please log in again.');
-      }, 3600000);
+        toast.error('Session timed out due to 2 hours of inactivity. Please log in again.');
+      }, 7200000);
     };
 
     // Events that indicate user activity

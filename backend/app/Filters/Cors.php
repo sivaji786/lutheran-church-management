@@ -32,25 +32,23 @@ class Cors implements FilterInterface
     private function getAllowedOrigin(RequestInterface $request): string
     {
         $origin = $request->getHeaderLine('Origin');
+        $envAllowedOrigins = getenv('CORS_ALLOWED_ORIGINS');
+        $allowedOrigins = $envAllowedOrigins ? explode(',', $envAllowedOrigins) : [];
         
-        // In development, allow localhost origins
+        // In development, explicitly allow localhost/127.0.0.1 origins
         if (ENVIRONMENT === 'development') {
-            if (preg_match('/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/', $origin)) {
-                return $origin;
+            if (empty($origin) || preg_match('/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/', $origin)) {
+                return $origin ?: '*';
             }
         }
         
-        // In production, only allow the production domain
-        if ($origin === 'https://churchcrm.online-project.in') {
+        // Check against allowed origins from .env
+        if (in_array($origin, $allowedOrigins)) {
             return $origin;
         }
         
-        // Default fallback for development
-        if (ENVIRONMENT === 'development') {
-            return '*';
-        }
-        
-        // Default to production domain
-        return 'https://churchcrm.online-project.in';
+        // If not matched, default to the first allowed origin if available
+        // Return first allowed origin instead of '*' to stay compatible with credentials: true
+        return !empty($allowedOrigins) ? $allowedOrigins[0] : (ENVIRONMENT === 'development' ? $origin : '');
     }
 }

@@ -17,18 +17,9 @@ class Admin extends BaseController
      */
     public function profile()
     {
-        // Get authorization header
-        $header = $this->request->getServer('HTTP_AUTHORIZATION');
-        if (!$header) {
-            return $this->failUnauthorized('No token provided');
-        }
-
-        $token = explode(' ', $header)[1];
-        
         try {
-            $key = getenv('JWT_SECRET');
-            $decoded = JWT::decode($token, new Key($key, 'HS256'));
-            $userId = $decoded->sub; // Assuming 'sub' holds the user ID
+            $user = $this->request->user;
+            $userId = $user->sub;
             
             $model = new AdminUserModel();
             $admin = $model->find($userId);
@@ -49,7 +40,7 @@ class Admin extends BaseController
             ]);
             
         } catch (\Exception $e) {
-            return $this->failUnauthorized('Invalid token');
+            return $this->failUnauthorized('Session error: ' . $e->getMessage());
         }
     }
     
@@ -58,18 +49,9 @@ class Admin extends BaseController
      */
     public function updateProfile()
     {
-        // Get authorization header
-        $header = $this->request->getServer('HTTP_AUTHORIZATION');
-        if (!$header) {
-            return $this->failUnauthorized('No token provided');
-        }
-
-        $token = explode(' ', $header)[1];
-        
         try {
-            $key = getenv('JWT_SECRET');
-            $decoded = JWT::decode($token, new Key($key, 'HS256'));
-            $userId = $decoded->sub;
+            $user = $this->request->user;
+            $userId = $user->sub;
             
             $rules = [
                 'name' => 'permit_empty|max_length[255]',
@@ -106,7 +88,7 @@ class Admin extends BaseController
             ]);
             
         } catch (\Exception $e) {
-            return $this->failUnauthorized('Invalid token: ' . $e->getMessage());
+            return $this->failUnauthorized('Session error: ' . $e->getMessage());
         }
     }
 
@@ -115,18 +97,9 @@ class Admin extends BaseController
      */
     public function changePassword()
     {
-        // Get authorization header
-        $header = $this->request->getServer('HTTP_AUTHORIZATION');
-        if (!$header) {
-            return $this->failUnauthorized('No token provided');
-        }
-
-        $token = explode(' ', $header)[1];
-        
         try {
-            $key = getenv('JWT_SECRET');
-            $decoded = JWT::decode($token, new Key($key, 'HS256'));
-            $userId = $decoded->sub;
+            $user = $this->request->user;
+            $userId = $user->sub;
             
             $rules = [
                 'currentPassword' => 'required',
@@ -165,7 +138,7 @@ class Admin extends BaseController
             ]);
             
         } catch (\Exception $e) {
-            return $this->failUnauthorized('Invalid token: ' . $e->getMessage());
+            return $this->failUnauthorized('Session error: ' . $e->getMessage());
         }
     }
     

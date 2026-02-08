@@ -34,6 +34,8 @@ class Filters extends BaseFilters
         'forcehttps'    => ForceHTTPS::class,
         'pagecache'     => PageCache::class,
         'performance'   => PerformanceMetrics::class,
+        'ratelimit'     => \App\Filters\RateLimit::class,
+        'jwtauth'       => \App\Filters\JWTAuth::class,
     ];
 
     /**
@@ -73,14 +75,14 @@ class Filters extends BaseFilters
     public array $globals = [
         'before' => [
             'cors',
-            // 'honeypot',
+            'honeypot',
+            'invalidchars',
             // 'csrf',
-            // 'invalidchars',
         ],
         'after' => [
             'cors',  // Add CORS headers to all responses
+            'secureheaders',
             // 'honeypot',
-            // 'secureheaders',
         ],
     ];
 
@@ -108,5 +110,16 @@ class Filters extends BaseFilters
      *
      * @var array<string, array<string, list<string>>>
      */
-    public array $filters = [];
+    public array $filters = [
+        'ratelimit' => ['before' => ['auth', 'auth/*']],
+        'jwtauth' => ['before' => [
+            'admin', 'admin/*', 
+            'admin-users', 'admin-users/*', 
+            'members', 'members/*', 
+            'offerings', 'offerings/*', 
+            'tickets', 'tickets/*', 
+            'non-member-offerings', 'non-member-offerings/*',
+            'dashboard', 'dashboard/*'
+        ]],
+    ];
 }
